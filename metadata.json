@@ -1,0 +1,7 @@
+{
+  "name": "BD FlexiLoad Telecom Reseller",
+  "description": "Production-ready Bangladesh Telecom Reselling & Flexiload User App with interactive mobile simulator and complete modular Flutter & Dart codebase.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
