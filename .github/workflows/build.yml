@@ -9,10 +9,8 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -22,15 +20,15 @@ jobs:
 
       - name: Install Dependencies & Build Web
         run: |
-          npm install
-          npm run build
+          bun install
+          bun run build
 
       - name: Setup Capacitor
         run: |
-          npm install @capacitor/core @capacitor/cli @capacitor/android
-          npx cap init telecom com.telecom.app --web-dir dist
-          npx cap add android
-          npx cap sync
+          bun add @capacitor/core @capacitor/cli @capacitor/android
+          bunx cap init telecom com.telecom.app --web-dir dist
+          bunx cap add android
+          bunx cap sync
 
       - name: Build APK with Gradle
         run: |
