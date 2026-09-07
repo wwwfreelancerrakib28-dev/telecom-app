@@ -28,8 +28,9 @@ jobs:
           bun add @capacitor/core @capacitor/cli @capacitor/android @capacitor/app
           bunx cap init "SIM OFFER SHOP" com.simoffershop.app --web-dir dist
           bunx cap add android
+          bun add -D @capacitor/assets && bunx @capacitor/assets generate --android --iconSource logo.png.jpg
           bunx cap sync
-
+          
       - name: Build APK with Gradle
         run: |
           cd android
