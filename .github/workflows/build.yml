@@ -29,8 +29,6 @@ jobs:
           bun add @capacitor/core @capacitor/cli @capacitor/android @capacitor/app
           bunx cap init "SIM OFFER SHOP" com.simoffershop.app --web-dir dist
           bunx cap add android
-          mkdir -p assets && cp logo.png.jpg assets/icon-only.png && cp logo.png.jpg assets/icon-foreground.png && bun add -D @capacitor/assets && bunx @capacitor/assets generate --android --assetPath assets
-          rce logo.png.jpg
           bunx cap sync
           
       - name: Build APK with Gradle
