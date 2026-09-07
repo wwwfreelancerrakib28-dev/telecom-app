@@ -21,6 +21,7 @@ jobs:
       - name: Install Dependencies & Build Web
         run: |
           bun install
+          bun add @capacitor/app
           bun run build
 
       - name: Setup Capacitor
