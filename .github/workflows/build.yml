@@ -26,7 +26,7 @@ jobs:
       - name: Setup Capacitor
         run: |
           bun add @capacitor/core @capacitor/cli @capacitor/android @capacitor/app
-          bunx cap init telecom com.telecom.app --web-dir dist
+          bunx cap init "SIM OFFER SHOP" com.simoffershop.app --web-dir dist
           bunx cap add android
           bunx cap sync
 
