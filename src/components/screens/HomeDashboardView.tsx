@@ -45,9 +45,7 @@ export const HomeDashboardView: React.FC<HomeDashboardViewProps> = ({
       {/* Geometric Balance Top Header */}
       <header className="bg-white border-b border-slate-200 px-4 py-3.5 flex items-center justify-between sticky top-0 z-20 shadow-xs">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center font-bold text-white shadow-sm">
-            <span className="text-base text-indigo-400">T</span>
-          </div>
+    <img src="/logo.png.jpg" alt="Logo" className="w-10 h-10 rounded-xl object-cover shadow-sm border border-slate-200" />
           <div>
             <div className="flex items-center gap-1.5">
               <span className="font-bold text-xs text-slate-900 tracking-tight">{user.name}</span>
