@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { App as CapApp } from '@capacitor/app';
+import { CheckCircle2, AlertTriangle } from 'lucide-react';
 import { UserProfile, Transaction, ScreenId, OperatorId, ConnectionType, DrivePackage } from './types';
 import { INITIAL_USER, INITIAL_TRANSACTIONS, OPERATORS } from './data/mockData';
 import { AuthScreenView } from './components/screens/AuthScreenView';
@@ -17,7 +18,44 @@ export default function App() {
   const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // অ্যান্ড্রয়েড ব্যাক বাটন হ্যান্ডলার
+  useEffect(() => {
+    let backHandler: any;
+
+    const setupBackButton = async () => {
+      backHandler = await CapApp.addListener('backButton', () => {
+        // ১. যদি এক্সিট কনফার্মেশন পপ-আপ খোলা থাকে, ব্যাক চাপলে পপ-আপটি বন্ধ হবে
+        if (showExitConfirm) {
+          setShowExitConfirm(false);
+        }
+        // ২. যদি ট্র্যান্সফার বা নোটিফিকেশন মডাল খোলা থাকে, তা বন্ধ হবে
+        else if (isTransferModalOpen) {
+          setIsTransferModalOpen(false);
+        } else if (isNotificationsOpen) {
+          setIsNotificationsOpen(false);
+        }
+        // ৩. অন্য কোনো স্ক্রিনে থাকলে হোম স্ক্রিনে ব্যাক আসবে
+        else if (currentScreen !== 'home' && currentScreen !== 'auth') {
+          setCurrentScreen('home');
+        }
+        // ৪. মূল হোম স্ক্রিনে ব্যাক চাপলে এক্সিট কনফার্মেশন পপ-আপ দেখাবে
+        else if (currentScreen === 'home') {
+          setShowExitConfirm(true);
+        }
+      });
+    };
+
+    setupBackButton();
+
+    return () => {
+      if (backHandler) {
+        backHandler.remove();
+      }
+    };
+  }, [showExitConfirm, isTransferModalOpen, isNotificationsOpen, currentScreen]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -234,6 +272,35 @@ export default function App() {
 
       {isNotificationsOpen && (
         <NotificationsModal onClose={() => setIsNotificationsOpen(false)} />
+      )}
+
+      {/* Exit Confirmation Dialog */}
+      {showExitConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-xs bg-white rounded-2xl p-5 shadow-2xl text-center flex flex-col items-center">
+            <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-3">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-bold text-slate-900 mb-1">Exit App?</h3>
+            <p className="text-xs text-slate-500 mb-5">
+              Are you sure you want to exit the application?
+            </p>
+            <div className="grid grid-cols-2 gap-3 w-full">
+              <button
+                onClick={() => setShowExitConfirm(false)}
+                className="w-full py-2.5 rounded-xl border border-slate-300 text-slate-700 font-semibold text-sm hover:bg-slate-100 active:scale-95 transition-all"
+              >
+                No
+              </button>
+              <button
+                onClick={() => CapApp.exitApp()}
+                className="w-full py-2.5 rounded-xl bg-red-600 text-white font-semibold text-sm hover:bg-red-700 active:scale-95 transition-all shadow-md shadow-red-200"
+              >
+                Yes
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
