@@ -15,8 +15,7 @@ import {
   XCircle,
   Smartphone,
   Info,
-  User as UserIcon,
-  ShieldCheck
+  User as UserIcon
 } from 'lucide-react';
 
 export default function UserApp() {
@@ -30,7 +29,7 @@ export default function UserApp() {
     driveBalance: 3820
   });
 
-  const [runningNotice] = useState('🎉 স্বাগতম SIM OFFER SHOP এ! আপনার প্রোফাইলে এখন ব্যালেন্স ও হিস্ট্রি একসাথে দেখতে পাবেন।');
+  const [runningNotice] = useState('🎉 স্বাগতম SIM OFFER SHOP এ! লাইভ চ্যাটে এখন সরাসরি অ্যাডমিনের সাথে কথা বলতে পারবেন।');
 
   const [notifications, setNotifications] = useState([
     { id: '1', title: 'স্বাগতম!', msg: 'আপনার অ্যাকাউন্ট সফলভাবে ভেরিফাই হয়েছে।', time: '10:30 AM', read: false }
@@ -43,7 +42,19 @@ export default function UserApp() {
   const [addAmount, setAddAmount] = useState('');
   const [trxId, setTrxId] = useState('');
 
-  // ইউজারের লেনদেন হিস্ট্রি স্টেট
+  // লাইভ চ্যাট মেসেজ স্টেট (যেখানে ইউজারের পাঠানো মেসেজ লিস্টে দেখাবে)
+  const [chatMessages, setChatMessages] = useState([
+    { id: '1', sender: 'admin', text: 'আসসালামু আলাইকুম! বলুন আপনাকে কীভাবে সাহায্য করতে পারি?' }
+  ]);
+  const [chatInput, setChatInput] = useState('');
+
+  const handleSendChatMessage = () => {
+    if (!chatInput.trim()) return;
+    const newMsg = { id: Date.now().toString(), sender: 'user', text: chatInput.trim() };
+    setChatMessages(prev => [...prev, newMsg]);
+    setChatInput('');
+  };
+
   const [historyTab, setHistoryTab] = useState<'add_money' | 'flexiload' | 'drive'>('add_money');
   const [userAddMoneyLogs, setUserAddMoneyLogs] = useState([
     { id: 'AM-101', method: 'bKash', amount: 1000, type: 'main', trxId: 'BK990011', time: 'Today, 10:30 AM', status: 'Approved' }
@@ -176,7 +187,7 @@ export default function UserApp() {
               <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
             </button>
           ) : (
-            <button onClick={() => setActiveSection('profile')} className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-black text-sm shadow-md active:scale-95" title="প্রোফাইল">
+            <button onClick={() => setActiveSection('profile')} className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-black text-sm shadow-md active:scale-95">
               {userProfile.name.charAt(0)}
             </button>
           )}
@@ -253,7 +264,6 @@ export default function UserApp() {
           </div>
         )}
 
-        {/* নতুন প্রোফাইল পেজ (যেখানে ইউজারের নাম, ব্যালেন্স এবং হিস্ট্রি শো করবে) */}
         {activeSection === 'profile' && (
           <div className="space-y-4">
             <div className="bg-white border rounded-3xl p-5 text-center space-y-3 shadow-sm">
@@ -267,8 +277,6 @@ export default function UserApp() {
                   Verified Retailer
                 </span>
               </div>
-
-              {/* প্রোফাইলে বর্তমান ব্যালেন্স শো করার কার্ড */}
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-center">
                   <span className="text-[10px] text-slate-500 block mb-0.5 font-bold">মেইন ব্যালেন্স</span>
@@ -280,37 +288,9 @@ export default function UserApp() {
                 </div>
               </div>
             </div>
-
-            {/* প্রোফাইল হিসت্রি সামারি */}
-            <div className="bg-white border rounded-3xl p-4 space-y-3 shadow-sm">
-              <h4 className="font-bold text-slate-900 border-b pb-2 flex items-center gap-1.5">
-                <History className="w-4 h-4 text-violet-600" /> আপনার সাম্প্রতিক লেনদেন রিপোর্ট
-              </h4>
-              <div className="space-y-2">
-                {userFlexiLogs.slice(0, 2).map(flx => (
-                  <div key={flx.id} className="bg-slate-50 border rounded-2xl p-3 flex justify-between items-center text-xs">
-                    <div>
-                      <p className="font-bold text-slate-900">রিচার্জ: ৳{flx.amount} ({flx.operator})</p>
-                      <p className="text-[10px] text-slate-500 font-mono">নম্বর: {flx.number}</p>
-                    </div>
-                    <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded">{flx.status}</span>
-                  </div>
-                ))}
-                {userDriveLogs.slice(0, 2).map(drv => (
-                  <div key={drv.id} className="bg-slate-50 border rounded-2xl p-3 flex justify-between items-center text-xs">
-                    <div>
-                      <p className="font-bold text-slate-900">ড্রাইভ: {drv.title} (৳{drv.price})</p>
-                      <p className="text-[10px] text-slate-500 font-mono">নম্বর: {drv.number}</p>
-                    </div>
-                    <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded">{drv.status}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
         )}
 
-        {/* এড ব্যালেন্স পেজ */}
         {activeSection === 'add_balance' && (
           <div className="space-y-3.5">
             <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-3.5 space-y-1.5 shadow-sm">
@@ -327,45 +307,23 @@ export default function UserApp() {
               <h4 className="font-bold text-slate-900 border-b pb-2 flex items-center gap-1.5">
                 <Wallet className="w-4 h-4 text-emerald-600" /> টাকা অ্যাড করুন (Add Balance)
               </h4>
-
               <div>
                 <label className="text-[10px] font-bold text-slate-500 block mb-1">পেমেন্ট মাধ্যম সিলেক্ট করুন</label>
                 <div className="grid grid-cols-3 gap-2">
                   {['bKash', 'Nagad', 'Rocket'].map((m) => (
-                    <button
-                      key={m}
-                      onClick={() => setSelectedMethod(m)}
-                      className={`py-2.5 rounded-2xl font-bold text-xs border transition-all ${
-                        selectedMethod === m ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-slate-50 text-slate-700 border-slate-200'
-                      }`}
-                    >
-                      {m}
-                    </button>
+                    <button key={m} onClick={() => setSelectedMethod(m)} className={`py-2.5 rounded-2xl font-bold text-xs border ${selectedMethod === m ? 'bg-indigo-600 text-white' : 'bg-slate-50'}`}>{m}</button>
                   ))}
                 </div>
               </div>
-
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-1.5">
-                <p className="text-[11px] text-slate-600 font-semibold">
-                  এই <span className="text-indigo-600 font-bold">{selectedMethod}</span> নম্বরে টাকা পাঠান:
-                </p>
-                <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl p-2.5">
+              <div className="bg-slate-50 border rounded-2xl p-3 space-y-1.5">
+                <p className="text-[11px] text-slate-600 font-semibold">এই <span className="text-indigo-600 font-bold">{selectedMethod}</span> নম্বরে টাকা পাঠান:</p>
+                <div className="flex items-center justify-between bg-white border rounded-xl p-2.5">
                   <span className="font-mono text-indigo-700 font-black text-sm">
                     {selectedMethod === 'bKash' ? paymentNumbers.bkash : selectedMethod === 'Nagad' ? paymentNumbers.nagad : paymentNumbers.rocket}
                   </span>
-                  <button
-                    onClick={() => handleCopyPaymentNumber(
-                      selectedMethod === 'bKash' ? paymentNumbers.bkash : selectedMethod === 'Nagad' ? paymentNumbers.nagad : paymentNumbers.rocket,
-                      'pay-num'
-                    )}
-                    className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg text-[10px] font-bold flex items-center gap-1 active:scale-95"
-                  >
-                    {copiedId === 'pay-num' ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
-                    <span>{copiedId === 'pay-num' ? 'কপি!' : 'নম্বর কপি'}</span>
-                  </button>
+                  <button onClick={() => handleCopyPaymentNumber(selectedMethod === 'bKash' ? paymentNumbers.bkash : selectedMethod === 'Nagad' ? paymentNumbers.nagad : paymentNumbers.rocket, 'pay-num')} className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-[10px] font-bold">নম্বর কপি</button>
                 </div>
               </div>
-
               <div>
                 <label className="text-[10px] font-bold text-slate-500 block mb-1">কোন ব্যালেন্সে এড করতে চান?</label>
                 <div className="grid grid-cols-2 gap-2">
@@ -373,20 +331,15 @@ export default function UserApp() {
                   <button type="button" onClick={() => setBalanceType('drive')} className={`py-2 rounded-xl font-bold text-xs ${balanceType === 'drive' ? 'bg-amber-50 text-amber-700 border' : 'bg-slate-50 border'}`}>ড্রাইভ ব্যালেন্স</button>
                 </div>
               </div>
-
               <div>
                 <label className="text-[10px] font-bold text-slate-500 block mb-1">টাকার পরিমাণ (৳)</label>
                 <input type="number" placeholder="যেমন: 500" value={addAmount} onChange={(e) => setAddAmount(e.target.value)} className="w-full bg-slate-50 border rounded-xl p-2.5 text-xs font-mono font-bold" />
               </div>
-
               <div>
                 <label className="text-[10px] font-bold text-slate-500 block mb-1">ট্রানজ্যাকশন আইডি (TrxID)</label>
                 <input type="text" placeholder="যেমন: BK990011" value={trxId} onChange={(e) => setTrxId(e.target.value)} className="w-full bg-slate-50 border rounded-xl p-2.5 text-xs font-mono font-bold uppercase" />
               </div>
-
-              <button onClick={handleAddBalanceSubmit} className="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl shadow-md">
-                পেমেন্ট সাবমিট করুন
-              </button>
+              <button onClick={handleAddBalanceSubmit} className="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl shadow-md">পেমেন্ট সাবমিট করুন</button>
             </div>
           </div>
         )}
@@ -395,13 +348,7 @@ export default function UserApp() {
           <div className="space-y-3">
             <div className="grid grid-cols-5 gap-1 bg-slate-200/80 p-1.5 rounded-2xl">
               {['Grameenphone', 'Robi', 'Banglalink', 'Airtel', 'Teletalk'].map((op) => (
-                <button
-                  key={op}
-                  onClick={() => setSelectedDriveOp(op)}
-                  className={`py-2 rounded-xl text-[10px] font-black transition-all flex flex-col items-center justify-center ${
-                    selectedDriveOp === op ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600'
-                  }`}
-                >
+                <button key={op} onClick={() => setSelectedDriveOp(op)} className={`py-2 rounded-xl text-[10px] font-black ${selectedDriveOp === op ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600'}`}>
                   <span>{op === 'Grameenphone' ? 'GP' : op === 'Banglalink' ? 'BL' : op}</span>
                 </button>
               ))}
@@ -422,9 +369,7 @@ export default function UserApp() {
                     </div>
                   </div>
                   <div className="flex justify-end pt-1 border-t border-slate-100">
-                    <button onClick={() => setOrderingOffer(offer)} className="py-1.5 px-4 bg-indigo-600 text-white font-bold text-xs rounded-xl shadow-sm">
-                      কিনুন
-                    </button>
+                    <button onClick={() => setOrderingOffer(offer)} className="py-1.5 px-4 bg-indigo-600 text-white font-bold text-xs rounded-xl shadow-sm">কিনুন</button>
                   </div>
                 </div>
               ))}
@@ -473,13 +418,7 @@ export default function UserApp() {
               <label className="text-[10px] font-bold text-slate-500 block mb-1">অপারেটর নির্বাচন করুন</label>
               <div className="grid grid-cols-5 gap-1.5">
                 {['Grameenphone', 'Robi', 'Banglalink', 'Airtel', 'Teletalk'].map((op) => (
-                  <button
-                    key={op}
-                    onClick={() => setFlexiOperator(op)}
-                    className={`py-2 px-1 rounded-xl text-[10px] font-black border transition-all flex flex-col items-center justify-center ${
-                      flexiOperator === op ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-slate-50 text-slate-700 border-slate-200'
-                    }`}
-                  >
+                  <button key={op} onClick={() => setFlexiOperator(op)} className={`py-2 px-1 rounded-xl text-[10px] font-black border ${flexiOperator === op ? 'bg-indigo-600 text-white' : 'bg-slate-50'}`}>
                     <span>{op === 'Grameenphone' ? 'GP' : op === 'Banglalink' ? 'BL' : op}</span>
                   </button>
                 ))}
@@ -489,17 +428,8 @@ export default function UserApp() {
             <div>
               <label className="text-[10px] font-bold text-slate-500 block mb-1">মোবাইল নম্বর</label>
               <div className="relative">
-                <input
-                  type="tel"
-                  maxLength={11}
-                  placeholder="017XXXXXXXX"
-                  value={flexiPhone}
-                  onChange={(e) => handlePhoneChange(e.target.value)}
-                  className="w-full bg-slate-50 border rounded-xl pl-3 pr-24 py-2.5 text-xs font-mono font-bold"
-                />
-                <div className="absolute right-2 top-2 bg-indigo-50 border border-indigo-200 text-indigo-700 px-2 py-1 rounded-lg text-[10px] font-black uppercase">
-                  {flexiOperator}
-                </div>
+                <input type="tel" maxLength={11} placeholder="017XXXXXXXX" value={flexiPhone} onChange={(e) => handlePhoneChange(e.target.value)} className="w-full bg-slate-50 border rounded-xl pl-3 pr-24 py-2.5 text-xs font-mono font-bold" />
+                <div className="absolute right-2 top-2 bg-indigo-50 border text-indigo-700 px-2 py-1 rounded-lg text-[10px] font-black uppercase">{flexiOperator}</div>
               </div>
             </div>
 
@@ -507,16 +437,7 @@ export default function UserApp() {
               <label className="text-[10px] font-bold text-slate-500 block mb-1">সিম টাইপ সিলেক্ট করুন</label>
               <div className="grid grid-cols-3 gap-2">
                 {['Prepaid', 'Postpaid', 'Skitto'].map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => setSimType(type)}
-                    className={`py-2 rounded-xl font-bold text-xs border transition-all ${
-                      simType === type ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-slate-50 text-slate-700 border-slate-200'
-                    }`}
-                  >
-                    {type}
-                  </button>
+                  <button key={type} type="button" onClick={() => setSimType(type)} className={`py-2 rounded-xl font-bold text-xs border ${simType === type ? 'bg-emerald-600 text-white' : 'bg-slate-50'}`}>{type}</button>
                 ))}
               </div>
             </div>
@@ -526,9 +447,7 @@ export default function UserApp() {
               <input type="number" placeholder="100" value={flexiAmount} onChange={(e) => setFlexiAmount(e.target.value)} className="w-full bg-slate-50 border rounded-xl p-2.5 text-xs font-mono font-bold" />
             </div>
 
-            <button onClick={handleFlexiSubmit} className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-md">
-              রিচার্জ কনফার্ম করুন
-            </button>
+            <button onClick={handleFlexiSubmit} className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-md">রিচার্জ কনফার্ম করুন</button>
           </div>
         )}
 
@@ -539,48 +458,24 @@ export default function UserApp() {
               <button onClick={() => setHistoryTab('flexiload')} className={`py-1.5 rounded-lg font-bold ${historyTab === 'flexiload' ? 'bg-white shadow-sm' : ''}`}>রিচার্জ</button>
               <button onClick={() => setHistoryTab('drive')} className={`py-1.5 rounded-lg font-bold ${historyTab === 'drive' ? 'bg-white shadow-sm' : ''}`}>ড্রাইভ</button>
             </div>
-
-            {historyTab === 'add_money' && (
-              <div className="space-y-2">
-                {userAddMoneyLogs.map(log => (
-                  <div key={log.id} className="bg-white border rounded-xl p-3 flex justify-between items-center shadow-sm">
-                    <div>
-                      <p className="font-bold text-slate-900">৳{log.amount} ({log.method})</p>
-                      <p className="text-[10px] text-slate-500">TrxID: {log.trxId} • {log.time}</p>
-                    </div>
-                    <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-1 rounded">{log.status}</span>
-                  </div>
-                ))}
+            {historyTab === 'add_money' && userAddMoneyLogs.map(log => (
+              <div key={log.id} className="bg-white border rounded-xl p-3 flex justify-between items-center shadow-sm">
+                <div><p className="font-bold">৳{log.amount} ({log.method})</p><p className="text-[10px] text-slate-500">TrxID: {log.trxId}</p></div>
+                <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-1 rounded">{log.status}</span>
               </div>
-            )}
-
-            {historyTab === 'flexiload' && (
-              <div className="space-y-2">
-                {userFlexiLogs.map(flx => (
-                  <div key={flx.id} className="bg-white border rounded-xl p-3 flex justify-between items-center shadow-sm">
-                    <div>
-                      <p className="font-bold text-slate-900">{flx.operator} - ৳{flx.amount} ({flx.simType})</p>
-                      <p className="text-[10px] text-slate-500 font-mono">নম্বর: {flx.number}</p>
-                    </div>
-                    <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-1 rounded">{flx.status}</span>
-                  </div>
-                ))}
+            ))}
+            {historyTab === 'flexiload' && userFlexiLogs.map(flx => (
+              <div key={flx.id} className="bg-white border rounded-xl p-3 flex justify-between items-center shadow-sm">
+                <div><p className="font-bold">{flx.operator} - ৳{flx.amount} ({flx.simType})</p><p className="text-[10px] text-slate-500 font-mono">নম্বর: {flx.number}</p></div>
+                <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-1 rounded">{flx.status}</span>
               </div>
-            )}
-
-            {historyTab === 'drive' && (
-              <div className="space-y-2">
-                {userDriveLogs.map(drv => (
-                  <div key={drv.id} className="bg-white border rounded-xl p-3 flex justify-between items-center shadow-sm">
-                    <div>
-                      <p className="font-bold text-slate-900">{drv.operator} - {drv.title} (৳{drv.price})</p>
-                      <p className="text-[10px] text-slate-500 font-mono">নম্বর: {drv.number}</p>
-                    </div>
-                    <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-1 rounded">{drv.status}</span>
-                  </div>
-                ))}
+            ))}
+            {historyTab === 'drive' && userDriveLogs.map(drv => (
+              <div key={drv.id} className="bg-white border rounded-xl p-3 flex justify-between items-center shadow-sm">
+                <div><p className="font-bold">{drv.operator} - {drv.title} (৳{drv.price})</p><p className="text-[10px] text-slate-500 font-mono">নম্বর: {drv.number}</p></div>
+                <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-1 rounded">{drv.status}</span>
               </div>
-            )}
+            ))}
           </div>
         )}
 
@@ -595,13 +490,38 @@ export default function UserApp() {
           </div>
         )}
 
+        {/* ফিক্সড লাইভ চ্যাট সেকশন (যেখানে মেসেজ লেখার পর পপ-আপ না এসে সরাসরি চ্যাট লিস্টে দেখাবে) */}
         {activeSection === 'chats' && (
-          <div className="bg-white border rounded-2xl p-3 h-[380px] flex flex-col shadow-sm">
-            <div className="border-b pb-1.5 mb-2 font-bold">অ্যাডমিনের সাথে লাইভ চ্যাট</div>
-            <div className="flex-1 overflow-y-auto">আসসালামু আলাইকুম!</div>
-            <div className="flex gap-1.5 pt-2 border-t">
-              <input type="text" placeholder="মেসেজ..." className="flex-1 bg-slate-50 border rounded-xl px-3 py-1.5 text-xs" />
-              <button onClick={() => alert('sent')} className="p-2 bg-indigo-600 text-white rounded-xl"><Send className="w-3.5 h-3.5" /></button>
+          <div className="bg-white border rounded-2xl p-3 h-[400px] flex flex-col shadow-sm">
+            <div className="border-b pb-1.5 mb-2 font-bold flex items-center gap-1.5">
+              <MessageSquare className="w-4 h-4 text-indigo-600" /> অ্যাডমিনের সাথে লাইভ চ্যাট
+            </div>
+            
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+              {chatMessages.map((msg) => (
+                <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-xs ${msg.sender === 'user' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-800'}`}>
+                    {msg.text}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-1.5 pt-2 border-t mt-2">
+              <input 
+                type="text" 
+                placeholder="আপনার সমস্যা বা মেসেজ লিখুন..." 
+                value={chatInput} 
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSendChatMessage()}
+                className="flex-1 bg-slate-50 border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-600" 
+              />
+              <button 
+                onClick={handleSendChatMessage} 
+                className="p-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm active:scale-95"
+              >
+                <Send className="w-4 h-4" />
+              </button>
             </div>
           </div>
         )}
@@ -618,4 +538,4 @@ export default function UserApp() {
       )}
     </div>
   );
-    }
+}
