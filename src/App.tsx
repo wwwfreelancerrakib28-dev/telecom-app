@@ -15,21 +15,40 @@ import {
   XCircle,
   Smartphone,
   Info,
-  User as UserIcon
+  User as UserIcon,
+  Facebook,
+  MessageCircle,
+  Eye,
+  EyeOff,
+  Lock,
+  HelpCircle
 } from 'lucide-react';
 
 export default function UserApp() {
+  // লগইন স্টেট (যদি ফলস হয় তবে ইউজার লগইন বা পিন রিকভারি স্ক্রিন দেখাবে)
   const [isLoggedIn, setIsLoggedIn] = useState(true);
+  const [authView, setAuthView] = useState<'login' | 'forgot'>('login');
+  
   const [activeSection, setActiveSection] = useState<'menu' | 'flexiload' | 'drive' | 'scratch' | 'add_balance' | 'history' | 'chats' | 'notifications' | 'profile'>('menu');
   
   const [userProfile, setUserProfile] = useState({
     name: 'Md. Tanvir Hasan',
-    phone: '01712-345678',
-    mainBalance: 1450,
+    phone: '01712345678',
+    pin: '1234',
+    mainBalance: 950,
     driveBalance: 3820
   });
 
-  const [runningNotice] = useState('🎉 স্বাগতম SIM OFFER SHOP এ! লাইভ চ্যাটে এখন সরাসরি অ্যাডমিনের সাথে কথা বলতে পারবেন।');
+  // অ্যাডমিন প্যানেল থেকে নিয়ন্ত্রিত সোশ্যাল মিডিয়া ও সাপোর্ট লিংক স্টেট
+  const [adminSocialLinks, setAdminSocialLinks] = useState({
+    facebookPage: 'https://facebook.com/yourpage',
+    whatsappNumber: '+8801728116153'
+  });
+
+  const [showPhone, setShowPhone] = useState(false);
+  const [showPin, setShowPin] = useState(false);
+
+  const [runningNotice] = useState('🎉 স্বাগতম SIM OFFER SHOP এ! পিন বা পাসওয়ার্ড ভুলে গেলে নিচে হোয়াটসঅ্যাপ বা ফেসবুক পেজে যোগাযোগ করুন।');
 
   const [notifications, setNotifications] = useState([
     { id: '1', title: 'স্বাগতম!', msg: 'আপনার অ্যাকাউন্ট সফলভাবে ভেরিফাই হয়েছে।', time: '10:30 AM', read: false }
@@ -41,19 +60,6 @@ export default function UserApp() {
   const [balanceType, setBalanceType] = useState('main');
   const [addAmount, setAddAmount] = useState('');
   const [trxId, setTrxId] = useState('');
-
-  // লাইভ চ্যাট মেসেজ স্টেট (যেখানে ইউজারের পাঠানো মেসেজ লিস্টে দেখাবে)
-  const [chatMessages, setChatMessages] = useState([
-    { id: '1', sender: 'admin', text: 'আসসালামু আলাইকুম! বলুন আপনাকে কীভাবে সাহায্য করতে পারি?' }
-  ]);
-  const [chatInput, setChatInput] = useState('');
-
-  const handleSendChatMessage = () => {
-    if (!chatInput.trim()) return;
-    const newMsg = { id: Date.now().toString(), sender: 'user', text: chatInput.trim() };
-    setChatMessages(prev => [...prev, newMsg]);
-    setChatInput('');
-  };
 
   const [historyTab, setHistoryTab] = useState<'add_money' | 'flexiload' | 'drive'>('add_money');
   const [userAddMoneyLogs, setUserAddMoneyLogs] = useState([
@@ -163,6 +169,18 @@ export default function UserApp() {
     setFlexiAmount('');
   };
 
+  const [chatMessages, setChatMessages] = useState([
+    { id: '1', sender: 'admin', text: 'আসসালামু আলাইকুম! বলুন আপনাকে কীভাবে সাহায্য করতে পারি?' }
+  ]);
+  const [chatInput, setChatInput] = useState('');
+
+  const handleSendChatMessage = () => {
+    if (!chatInput.trim()) return;
+    const newMsg = { id: Date.now().toString(), sender: 'user', text: chatInput.trim() };
+    setChatMessages(prev => [...prev, newMsg]);
+    setChatInput('');
+  };
+
   const handleBack = () => {
     if (orderingOffer) setOrderingOffer(null);
     else if (activeSection !== 'menu') setActiveSection('menu');
@@ -177,6 +195,63 @@ export default function UserApp() {
   }, [orderingOffer, activeSection]);
 
   const visibleOffers = driveOffers.filter(o => o.operator === selectedDriveOp);
+
+  // যদি ইউজার লগআউট অবস্থায় থাকে তবে লগইন বা পিন রিসেট স্ক্রিন দেখাবে
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 select-none font-sans">
+        <div className="w-full max-w-xs bg-white rounded-3xl p-6 shadow-xl border text-center space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
+            <Lock className="w-6 h-6" />
+          </div>
+
+          {authView === 'login' ? (
+            <>
+              <h2 className="text-sm font-black text-slate-900">RETAILER LOGIN</h2>
+              <div className="space-y-3 text-left">
+                <input type="tel" placeholder="মোবাইল নম্বর" className="w-full bg-slate-50 border rounded-xl p-2.5 text-xs font-bold" />
+                <input type="password" placeholder="পিন (PIN)" className="w-full bg-slate-50 border rounded-xl p-2.5 text-xs font-bold tracking-widest" />
+                <button onClick={() => setIsLoggedIn(true)} className="w-full py-2.5 bg-indigo-600 text-white font-bold text-xs rounded-xl shadow-md">লগইন</button>
+              </div>
+              <button onClick={() => setAuthView('forgot')} className="text-[11px] text-indigo-600 font-bold hover:underline block mx-auto pt-1">
+                পিন বা পাসওয়ার্ড ভুলে গেছেন?
+              </button>
+            </>
+          ) : (
+            <>
+              <h2 className="text-sm font-black text-slate-900">পাসওয়ার্ড বা পিন রিকভারি</h2>
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                পিন বা পাসওয়ার্ড ভুলে গেলে নিচে আমাদের অফিসিয়াল ফেসবুক পেজ অথবা হোয়াটসঅ্যাপে যোগাযোগ করে খুব সহজেই রিসেট করে নিতে পারেন।
+              </p>
+              
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                <a 
+                  href={adminSocialLinks.facebookPage} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="py-2.5 bg-blue-50 text-blue-600 font-bold text-xs rounded-xl border border-blue-200 flex items-center justify-center gap-1.5"
+                >
+                  <Facebook className="w-4 h-4" /> ফেসবুক পেজ
+                </a>
+                <a 
+                  href={`https://wa.me/${adminSocialLinks.whatsappNumber.replace(/[^0-9]/g, '')}`} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="py-2.5 bg-emerald-50 text-emerald-600 font-bold text-xs rounded-xl border border-emerald-200 flex items-center justify-center gap-1.5"
+                >
+                  <MessageCircle className="w-4 h-4" /> হোয়াটসঅ্যাপ
+                </a>
+              </div>
+
+              <button onClick={() => setAuthView('login')} className="text-[11px] text-slate-600 font-bold block mx-auto pt-2">
+                ← লগইন পেজে ফিরে যান
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col select-none font-sans text-xs">
@@ -193,7 +268,9 @@ export default function UserApp() {
           )}
           <div>
             <h2 className="text-xs font-black text-slate-900 leading-tight">{userProfile.name}</h2>
-            <p className="text-[10px] text-slate-500 font-mono">{userProfile.phone}</p>
+            <p className="text-[10px] text-slate-500 font-mono">
+              {showPhone ? userProfile.phone : '01712-******'}
+            </p>
           </div>
         </div>
 
@@ -261,6 +338,20 @@ export default function UserApp() {
                 <span className="text-xs font-bold text-slate-900">Live Chat</span>
               </button>
             </div>
+
+            <div className="space-y-2 pt-2">
+              <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider px-1">Support & Connect</h4>
+              <div className="grid grid-cols-2 gap-2.5">
+                <a href={adminSocialLinks.facebookPage} target="_blank" rel="noreferrer" className="bg-white border rounded-3xl p-3.5 flex items-center gap-3 shadow-sm">
+                  <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0"><Facebook className="w-5 h-5" /></div>
+                  <div><h5 className="font-bold text-slate-900 text-xs">Facebook</h5><p className="text-[9px] text-slate-400">Join Community</p></div>
+                </a>
+                <a href={`https://wa.me/${adminSocialLinks.whatsappNumber.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" className="bg-white border rounded-3xl p-3.5 flex items-center gap-3 shadow-sm">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0"><MessageCircle className="w-5 h-5" /></div>
+                  <div><h5 className="font-bold text-slate-900 text-xs">WhatsApp</h5><p className="text-[9px] text-slate-400">Direct Support</p></div>
+                </a>
+              </div>
+            </div>
           </div>
         )}
 
@@ -272,20 +363,52 @@ export default function UserApp() {
               </div>
               <div>
                 <h3 className="text-sm font-black text-slate-900">{userProfile.name}</h3>
-                <p className="text-xs text-slate-500 font-mono">📱 {userProfile.phone}</p>
-                <span className="inline-block mt-1 px-2.5 py-0.5 bg-emerald-50 text-emerald-700 font-bold text-[10px] rounded-full border border-emerald-200">
+                
+                <div className="flex items-center justify-center gap-1.5 mt-1">
+                  <span className="text-xs text-slate-500 font-mono">📱 {showPhone ? userProfile.phone : '01712-******'}</span>
+                  <button onClick={() => setShowPhone(!showPhone)} className="text-indigo-600 p-1">
+                    {showPhone ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-center gap-1.5 mt-0.5">
+                  <span className="text-xs text-slate-500 font-mono">🔒 পিন: {showPin ? userProfile.pin : '••••'}</span>
+                  <button onClick={() => setShowPin(!showPin)} className="text-indigo-600 p-1">
+                    {showPin ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+
+                <span className="inline-block mt-2 px-2.5 py-0.5 bg-emerald-50 text-emerald-700 font-bold text-[10px] rounded-full border border-emerald-200">
                   Verified Retailer
                 </span>
               </div>
+
               <div className="grid grid-cols-2 gap-3 pt-2">
-                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-center">
+                <div className="bg-slate-50 border rounded-2xl p-3 text-center">
                   <span className="text-[10px] text-slate-500 block mb-0.5 font-bold">মেইন ব্যালেন্স</span>
                   <h4 className="text-base font-black font-mono text-indigo-600">৳{userProfile.mainBalance}</h4>
                 </div>
-                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-center">
+                <div className="bg-slate-50 border rounded-2xl p-3 text-center">
                   <span className="text-[10px] text-slate-500 block mb-0.5 font-bold">ড্রাইভ ব্যালেন্স</span>
                   <h4 className="text-base font-black font-mono text-amber-600">৳{userProfile.driveBalance}</h4>
                 </div>
+              </div>
+            </div>
+
+            <div className="bg-white border rounded-3xl p-4 space-y-3 shadow-sm">
+              <h4 className="font-bold text-slate-900 border-b pb-2 flex items-center gap-1.5">
+                <History className="w-4 h-4 text-violet-600" /> আপনার সাম্প্রতিক লেনদেন রিপোর্ট
+              </h4>
+              <div className="space-y-2">
+                {userFlexiLogs.map(flx => (
+                  <div key={flx.id} className="bg-slate-50 border rounded-2xl p-3 flex justify-between items-center text-xs">
+                    <div>
+                      <p className="font-bold text-slate-900">রিচার্জ: ৳{flx.amount} ({flx.operator})</p>
+                      <p className="text-[10px] text-slate-500 font-mono">নম্বর: {flx.number}</p>
+                    </div>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${flx.status === 'Completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{flx.status}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -348,7 +471,7 @@ export default function UserApp() {
           <div className="space-y-3">
             <div className="grid grid-cols-5 gap-1 bg-slate-200/80 p-1.5 rounded-2xl">
               {['Grameenphone', 'Robi', 'Banglalink', 'Airtel', 'Teletalk'].map((op) => (
-                <button key={op} onClick={() => setSelectedDriveOp(op)} className={`py-2 rounded-xl text-[10px] font-black ${selectedDriveOp === op ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600'}`}>
+                <button key={op} onClick={() => setSelectedDriveOp(op)} className={`py-2 rounded-xl text-[10px] font-black transition-all flex flex-col items-center justify-center ${selectedDriveOp === op ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600'}`}>
                   <span>{op === 'Grameenphone' ? 'GP' : op === 'Banglalink' ? 'BL' : op}</span>
                 </button>
               ))}
@@ -490,13 +613,9 @@ export default function UserApp() {
           </div>
         )}
 
-        {/* ফিক্সড লাইভ চ্যাট সেকশন (যেখানে মেসেজ লেখার পর পপ-আপ না এসে সরাসরি চ্যাট লিস্টে দেখাবে) */}
         {activeSection === 'chats' && (
-          <div className="bg-white border rounded-2xl p-3 h-[400px] flex flex-col shadow-sm">
-            <div className="border-b pb-1.5 mb-2 font-bold flex items-center gap-1.5">
-              <MessageSquare className="w-4 h-4 text-indigo-600" /> অ্যাডমিনের সাথে লাইভ চ্যাট
-            </div>
-            
+          <div className="bg-white border rounded-2xl p-3 h-[380px] flex flex-col shadow-sm">
+            <div className="border-b pb-1.5 mb-2 font-bold">অ্যাডমিনের সাথে লাইভ চ্যাট</div>
             <div className="flex-1 overflow-y-auto space-y-2 pr-1">
               {chatMessages.map((msg) => (
                 <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -506,22 +625,9 @@ export default function UserApp() {
                 </div>
               ))}
             </div>
-
             <div className="flex gap-1.5 pt-2 border-t mt-2">
-              <input 
-                type="text" 
-                placeholder="আপনার সমস্যা বা মেসেজ লিখুন..." 
-                value={chatInput} 
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSendChatMessage()}
-                className="flex-1 bg-slate-50 border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-600" 
-              />
-              <button 
-                onClick={handleSendChatMessage} 
-                className="p-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm active:scale-95"
-              >
-                <Send className="w-4 h-4" />
-              </button>
+              <input type="text" placeholder="মেসেজ..." value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendChatMessage()} className="flex-1 bg-slate-50 border rounded-xl px-3 py-2 text-xs" />
+              <button onClick={handleSendChatMessage} className="p-2.5 bg-indigo-600 text-white rounded-xl"><Send className="w-4 h-4" /></button>
             </div>
           </div>
         )}
@@ -538,4 +644,4 @@ export default function UserApp() {
       )}
     </div>
   );
-}
+              }
