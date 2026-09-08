@@ -13,40 +13,78 @@ import { TransferModal } from './components/modals/TransferModal';
 import { NotificationsModal } from './components/modals/NotificationsModal';
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<ScreenId>('home');
-  const [historyStack, setHistoryStack] = useState<ScreenId[]>(['home']);
-  const [user, setUser] = useState<UserProfile>(INITIAL_USER);
+  // আগের সেভ করা ইউজার আছে কিনা চেক করা (না থাকলে সরাসরি auth/login স্ক্রিন)
+  const [user, setUser] = useState<UserProfile>(() => {
+    const saved = localStorage.getItem('telecom_user');
+    return saved ? JSON.parse(saved) : INITIAL_USER;
+  });
+
+  const [currentScreen, setCurrentScreen] = useState<ScreenId>(() => {
+    const saved = localStorage.getItem('telecom_user_logged_in');
+    return saved === 'true' ? 'home' : 'auth';
+  });
+
+  const [historyStack, setHistoryStack] = useState<ScreenId[]>(() => {
+    const saved = localStorage.getItem('telecom_user_logged_in');
+    return saved === 'true' ? ['home'] : ['auth'];
+  });
+
   const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  
-  // ইন্টারনেট কানেকশন স্টেট
-  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
 
-  // ইন্টারনেট কানেকশন লিসেনার
+  // ইন্টারনেট যাচাই স্টেট
+  const [isOnline, setIsOnline] = useState<boolean>(true);
+  const [isCheckingNet, setIsCheckingNet] = useState<boolean>(false);
+
+  // রিয়েল ইন্টারনেট চেক ফাংশন
+  const checkRealInternet = async () => {
+    if (!navigator.onLine) {
+      setIsOnline(false);
+      return;
+    }
+    try {
+      setIsCheckingNet(true);
+      // ছোট একটি হেড রিকোয়েস্ট দিয়ে আসল ইন্টারনেট চেক
+      const res = await fetch('https://www.google.com/favicon.ico', {
+        method: 'HEAD',
+        mode: 'no-cors',
+        cache: 'no-store'
+      });
+      setIsOnline(true);
+    } catch (err) {
+      setIsOnline(false);
+    } finally {
+      setIsCheckingNet(false);
+    }
+  };
+
   useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
+    checkRealInternet();
+    const interval = setInterval(checkRealInternet, 5000); // প্রতি ৫ সেকেন্ড পর পর কানেকশন চেক করবে
+
+    const handleOnline = () => checkRealInternet();
     const handleOffline = () => setIsOnline(false);
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
     return () => {
+      clearInterval(interval);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
-  // নতুন স্ক্রিনে যাওয়ার হ্যান্ডলার
+  // নেভিগেশন
   const navigateTo = (screen: ScreenId) => {
     if (screen === currentScreen) return;
     setHistoryStack((prev) => [...prev, screen]);
     setCurrentScreen(screen);
   };
 
-  // একটি পেজ পেছনে যাওয়ার হ্যান্ডলার
   const goBack = () => {
     if (historyStack.length > 1) {
       const newStack = [...historyStack];
@@ -59,7 +97,7 @@ export default function App() {
     }
   };
 
-  // অ্যান্ড্রয়েড ব্যাক বাটন হ্যান্ডলার
+  // অ্যান্ড্রয়েড ব্যাক বাটন
   useEffect(() => {
     let backHandler: any;
 
@@ -96,7 +134,7 @@ export default function App() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // 1. Recharge success handler
+  // Flexiload
   const handleRechargeSuccess = (data: {
     recipient: string;
     operator: OperatorId;
@@ -129,7 +167,7 @@ export default function App() {
     showToast(`৳${data.amount} Flexiload Recharge to ${data.recipient} Successful!`);
   };
 
-  // 2. Drive pack purchase handler
+  // Drive Pack
   const handleBuyDriveSuccess = (data: {
     recipientPhone: string;
     pack: DrivePackage;
@@ -159,7 +197,7 @@ export default function App() {
     showToast(`Drive pack order submitted! Status: PENDING.`);
   };
 
-  // 3. Add balance success handler
+  // Add Balance
   const handleAddBalanceSuccess = (data: {
     senderNumber: string;
     amount: number;
@@ -194,7 +232,7 @@ export default function App() {
     showToast(`Add Balance request of ৳${data.amount} submitted (TrxID: ${data.trxId}).`);
   };
 
-  // 4. Transfer handler
+  // Transfer
   const handleTransferSuccess = (
     amount: number,
     from: 'main' | 'drive',
@@ -227,23 +265,24 @@ export default function App() {
     showToast(`Transferred ৳${amount} from ${from} to ${to} balance.`);
   };
 
-  // ইন্টারনেট না থাকলে দেখাবে এই ফুল-স্ক্রিন নোটিশ
+  // ইন্টারনেট না থাকলে স্ক্রিন ব্লক
   if (!isOnline) {
     return (
-      <div className="min-h-screen w-full bg-slate-900 text-white flex flex-col items-center justify-center p-6 text-center select-none">
-        <div className="w-20 h-20 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-500 mb-6 shadow-xl shadow-rose-500/10">
+      <div className="fixed inset-0 z-50 bg-slate-950 text-white flex flex-col items-center justify-center p-6 text-center select-none">
+        <div className="w-20 h-20 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-500 mb-6 shadow-xl shadow-rose-500/10">
           <WifiOff className="w-10 h-10 animate-pulse" />
         </div>
-        <h2 className="text-xl font-black tracking-tight mb-2">ইন্টারনেট সংযোগ নেই!</h2>
+        <h2 className="text-xl font-bold tracking-tight mb-2">ইন্টারনেট সংযোগ নেই!</h2>
         <p className="text-xs text-slate-400 max-w-xs leading-relaxed mb-8">
-          SIM OFFER SHOP অ্যাপটি ব্যবহার করতে আপনার মোবাইলের ইন্টারনেট (Wi-Fi বা মোবাইল ডাটা) চালু করুন।
+          SIM OFFER SHOP অ্যাপটি ব্যবহার করতে আপনার ইন্টারনেট সংযোগ চালু করুন।
         </p>
         <button
-          onClick={() => setIsOnline(navigator.onLine)}
-          className="w-full max-w-xs py-3.5 bg-indigo-600 hover:bg-indigo-500 active:scale-95 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 transition-all"
+          onClick={checkRealInternet}
+          disabled={isCheckingNet}
+          className="w-full max-w-xs py-3.5 bg-indigo-600 hover:bg-indigo-500 active:scale-95 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 transition-all disabled:opacity-60"
         >
-          <RefreshCw className="w-4 h-4" />
-          <span>পুনরায় চেষ্টা করুন</span>
+          <RefreshCw className={`w-4 h-4 ${isCheckingNet ? 'animate-spin' : ''}`} />
+          <span>{isCheckingNet ? 'যাচাই করা হচ্ছে...' : 'পুনরায় চেষ্টা করুন'}</span>
         </button>
       </div>
     );
@@ -266,6 +305,7 @@ export default function App() {
             user={user}
             onLoginSuccess={(updatedUser) => {
               if (updatedUser) setUser(updatedUser);
+              localStorage.setItem('telecom_user_logged_in', 'true');
               setHistoryStack(['home']);
               setCurrentScreen('home');
               showToast('Login Successful!');
@@ -281,6 +321,7 @@ export default function App() {
             onOpenNotifications={() => setIsNotificationsOpen(true)}
             onOpenTransfer={() => setIsTransferModalOpen(true)}
             onLogout={() => {
+              localStorage.removeItem('telecom_user_logged_in');
               setHistoryStack(['auth']);
               setCurrentScreen('auth');
               showToast('Logged out of Telecom account.');
