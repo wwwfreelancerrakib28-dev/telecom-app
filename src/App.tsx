@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { db } from './firebase';
 import { ref, set, push, onValue, update } from 'firebase/database';
-import { 
+import { 
   Send, Flame, Wallet, History, MessageSquare, Bell, LogOut, ArrowLeft, 
   Ticket, Copy, Check, XCircle, User as UserIcon, Facebook, MessageCircle, 
   Eye, EyeOff, Lock, ShoppingCart, AlertCircle, Clock, Key, HelpCircle, 
-  Sparkles, RefreshCw, Zap, Info, FileText
+  Sparkles, RefreshCw, Zap, Info, FileText, Download
 } from 'lucide-react';
 
 export default function UserApp() {
@@ -16,6 +16,9 @@ export default function UserApp() {
   const [inputPhone, setInputPhone] = useState('');
   const [inputPin, setInputPin] = useState('');
   const [inputName, setInputName] = useState('');
+
+  // ফোর্স আপডেট স্টেট
+  const [forceUpdate, setForceUpdate] = useState({ enabled: false, link: '#' });
 
   const [activeSection, setActiveSection] = useState<'menu' | 'flexiload' | 'drive' | 'scratch' | 'add_balance' | 'history' | 'chats' | 'notifications' | 'profile' | 'support'>('menu');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -40,12 +43,16 @@ export default function UserApp() {
   const [trxId, setTrxId] = useState('');
   const [copiedNum, setCopiedNum] = useState(false);
 
-  // ডায়নামিক নোট স্টেট
+  // ডায়নামিক এড-মানি নোট
   const [addMoneyNote, setAddMoneyNote] = useState('প্রথমে নাম্বারে টাকা পাঠিয়ে ট্রানজ্যাকশন আইডি দিন।');
 
-  // হোল্ড বাটন প্রোগ্রেস স্টেট
+  // হোল্ড টু কনফার্ম (Add Money)
   const [isHoldingAddMoney, setIsHoldingAddMoney] = useState(false);
   const [holdAddMoneyProgress, setHoldAddMoneyProgress] = useState(0);
+
+  // হোল্ড টু কনফার্ম (Flexiload)
+  const [isHoldingFlexi, setIsHoldingFlexi] = useState(false);
+  const [holdFlexiProgress, setHoldFlexiProgress] = useState(0);
 
   const [masterDriveEnabled, setMasterDriveEnabled] = useState(true);
   const [simStatus, setSimStatus] = useState<Record<string, boolean>>({});
@@ -69,15 +76,17 @@ export default function UserApp() {
   const [simType, setSimType] = useState('Prepaid');
   const [flexiAmount, setFlexiAmount] = useState('');
   const [flexiPin, setFlexiPin] = useState('');
-  const [isHoldingFlexi, setIsHoldingFlexi] = useState(false);
-  const [holdFlexiProgress, setHoldFlexiProgress] = useState(0);
 
   const [historyTab, setHistoryTab] = useState<'add_money' | 'flexiload' | 'drive'>('add_money');
-  const [chatMessages, setChatMessages] = useState<any[]>([{ id: '1', sender: 'admin', text: 'আসসালামু আলাইকুম!' }]);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState('');
 
   useEffect(() => {
     onValue(ref(db, 'settings/notice'), (snapshot) => { if (snapshot.val()) setRunningNotice(snapshot.val()); });
+    onValue(ref(db, 'settings/forceUpdate'), (snapshot) => {
+      const val = snapshot.val();
+      if (val) setForceUpdate(val);
+    });
     onValue(ref(db, 'settings/masterDrive'), (snapshot) => { if (snapshot.val() !== null) setMasterDriveEnabled(snapshot.val()); });
     onValue(ref(db, 'settings/simStatus'), (snapshot) => { if (snapshot.val()) setSimStatus(snapshot.val()); });
     onValue(ref(db, 'settings/socialLinks'), (snapshot) => { if (snapshot.val()) setAdminSocialLinks(snapshot.val()); });
@@ -114,8 +123,13 @@ export default function UserApp() {
     onValue(ref(db, 'notifications'), (snapshot) => {
       const data = snapshot.val();
       if (data) setNotifications(Object.keys(data).map(k => ({ id: k, ...data[k] })));
+      else setNotifications([]);
     });
-  }, []);
+    onValue(ref(db, `chats/${userProfile.id}`), (snapshot) => {
+      const data = snapshot.val();
+      if (data) setChatMessages(Object.keys(data).map(k => ({ id: k, ...data[k] })));
+    });
+  }, [userProfile.id]);
 
   const handleCopyPaymentNum = (num: string) => {
     navigator.clipboard.writeText(num);
@@ -123,69 +137,53 @@ export default function UserApp() {
     setTimeout(() => setCopiedNum(false), 2000);
   };
 
-  // এড-মানি হোল্ড অ্যানিমেশন ও প্রসেসিং
+  // এড-মানি হোল্ড অ্যানিমেশন
   useEffect(() => {
     let interval: any;
     if (isHoldingAddMoney) {
       interval = setInterval(() => {
         setHoldAddMoneyProgress((prev) => {
-          if (prev >= 100) {
-            clearInterval(interval);
-            executeAddMoney();
-            return 100;
-          }
+          if (prev >= 100) { clearInterval(interval); executeAddMoney(); return 100; }
           return prev + 10;
         });
       }, 150);
-    } else {
-      setHoldAddMoneyProgress(0);
-    }
+    } else { setHoldAddMoneyProgress(0); }
     return () => clearInterval(interval);
   }, [isHoldingAddMoney]);
 
   const executeAddMoney = () => {
     setIsHoldingAddMoney(false);
     setHoldAddMoneyProgress(0);
-
-    if (!addMoneyEnabled) return alert('বর্তমানে সার্ভিস বন্ধ রয়েছে!');
+    if (!addMoneyEnabled) return alert('বর্তমানে এড মানি সার্ভিস বন্ধ রয়েছে!');
     if (!addAmount || Number(addAmount) <= 0) return alert('সঠিক পরিমাণ লিখুন!');
     if (!trxId || trxId.length < 5) return alert('সঠিক TrxID লিখুন!');
 
     push(ref(db, 'addMoneyLogs'), {
-      userName: userProfile.name, userPhone: userProfile.phone, method: selectedMethod,
+      userId: userProfile.id, userName: userProfile.name, userPhone: userProfile.phone, method: selectedMethod,
       amount: Number(addAmount), balanceType: balanceType, trxId: trxId.toUpperCase(),
       time: new Date().toLocaleTimeString(), status: 'Pending'
     });
-
-    setPopupAlert('আপনার add money success হইছে, অল্প সময়ের মধ্যে add হয়ে যাবে।');
-    setAddAmount('');
-    setTrxId('');
+    setPopupAlert('আপনার Add Money রিকোয়েস্ট Success হয়েছে, অল্প সময়ের মধ্যে ব্যালেন্স এড হয়ে যাবে।');
+    setAddAmount(''); setTrxId('');
   };
 
-  // ফ্লেক্সিলোড হোল্ড অ্যানিমেশন ও প্রসেসিং
+  // ফ্লেক্সিলোড হোল্ড অ্যানিমেশন
   useEffect(() => {
     let interval: any;
     if (isHoldingFlexi) {
       interval = setInterval(() => {
         setHoldFlexiProgress((prev) => {
-          if (prev >= 100) {
-            clearInterval(interval);
-            executeFlexiRecharge();
-            return 100;
-          }
+          if (prev >= 100) { clearInterval(interval); executeFlexiRecharge(); return 100; }
           return prev + 10;
         });
       }, 150);
-    } else {
-      setHoldFlexiProgress(0);
-    }
+    } else { setHoldFlexiProgress(0); }
     return () => clearInterval(interval);
   }, [isHoldingFlexi]);
 
   const executeFlexiRecharge = () => {
     setIsHoldingFlexi(false);
     setHoldFlexiProgress(0);
-
     if (!flexiPhone || flexiPhone.length < 11) return alert('সঠিক নম্বর দিন!');
     if (!flexiAmount || Number(flexiAmount) <= 0) return alert('টাকার পরিমাণ দিন!');
     if (flexiPin !== userProfile.pin) return alert('পিন সঠিক নয়!');
@@ -195,12 +193,11 @@ export default function UserApp() {
     setUserProfile(prev => ({ ...prev, mainBalance: newMainBal }));
 
     push(ref(db, 'rechargeOrders'), {
-      userName: userProfile.name, userPhone: userProfile.phone, operator: flexiOperator,
+      userId: userProfile.id, userName: userProfile.name, userPhone: userProfile.phone, operator: flexiOperator,
       amount: Number(flexiAmount), targetNumber: flexiPhone, time: new Date().toLocaleTimeString(),
       status: 'Pending', note: simType
     });
-
-    setPopupAlert('🚀 আপনার ফ্লেক্সিলোড success হইছে, অল্প সময়ের মধ্যে চলে যাবে।');
+    setPopupAlert('🚀 আপনার ফ্লেক্সিলোড Success হয়েছে, অল্প সময়ের মধ্যে চলে যাবে।');
     setFlexiPhone(''); setFlexiAmount(''); setFlexiPin('');
   };
 
@@ -215,31 +212,111 @@ export default function UserApp() {
 
   const handlePullToRefresh = () => {
     setIsRefreshing(true);
-    setTimeout(() => { setIsRefreshing(false); setPopupAlert('✨ অ্যাপ রিফ্রেশ সফল হয়েছে!'); }, 1000);
+    setTimeout(() => { setIsRefreshing(false); setPopupAlert('✨ অ্যাপ ডাটা সফলভাবে রিফ্রেশ হয়েছে!'); }, 1000);
   };
+
+  const handleSendChatMessage = () => {
+    if (!chatInput.trim()) return;
+    push(ref(db, `chats/${userProfile.id}`), {
+      sender: 'user', text: chatInput.trim(), time: new Date().toLocaleTimeString()
+    });
+    setChatInput('');
+  };
+
+  const handleConfirmBuyCard = () => {
+    if (!buyingCard) return;
+    if (!targetCardNumber || targetCardNumber.length < 11) return alert('সঠিক ১১ ডিজিট নম্বর লিখুন!');
+    if (userProfile.mainBalance < buyingCard.price) return alert('মেইন ব্যালেন্স পর্যাপ্ত নয়!');
+
+    const newMainBal = userProfile.mainBalance - buyingCard.price;
+    setUserProfile(prev => ({ ...prev, mainBalance: newMainBal }));
+
+    push(ref(db, 'rechargeOrders'), {
+      userId: userProfile.id, userName: userProfile.name, userPhone: userProfile.phone, operator: buyingCard.type,
+      amount: buyingCard.price, targetNumber: targetCardNumber, time: new Date().toLocaleTimeString(),
+      status: 'Pending', note: 'Scratch Card: ' + buyingCard.title
+    });
+
+    setPopupAlert(`⏳ কার্ড ক্রয়ের রিকোয়েস্ট সফলভাবে জমা হয়েছে!`);
+    setBuyingCard(null); setTargetCardNumber('');
+  };
+
+  const handleConfirmDriveOrder = () => {
+    if (!targetDriveNumber || targetDriveNumber.length < 11) return alert('সঠিক ১১ ডিজিট নম্বর লিখুন!');
+    if (hasSimLoan === null) return alert('লোন আছে কি না সিলেক্ট করুন!');
+    if (hasSimLoan === true) return alert('⚠️ লোন থাকা অবস্থায় ড্রাইভ নেওয়া যাবে না!');
+    if (userProfile.driveBalance < orderingOffer.price) return alert('ড্রাইভ ব্যালেন্স পর্যাপ্ত নয়!');
+
+    const newDriveBal = userProfile.driveBalance - orderingOffer.price;
+    setUserProfile(prev => ({ ...prev, driveBalance: newDriveBal }));
+
+    push(ref(db, 'driveOrders'), {
+      userId: userProfile.id, userName: userProfile.name, userPhone: userProfile.phone, operator: orderingOffer.operator,
+      packageTitle: orderingOffer.title, price: orderingOffer.price, targetNumber: targetDriveNumber,
+      time: new Date().toLocaleTimeString(), status: 'Pending', hasLoan: false
+    });
+
+    setPopupAlert(`⏳ ড্রাইভ অর্ডার সফলভাবে সাবমিট হয়েছে!`);
+    setOrderingOffer(null); setTargetDriveNumber(''); setHasSimLoan(null);
+  };
+
+  useEffect(() => {
+    const backListener = CapacitorApp.addListener('backButton', () => {
+      if (orderingOffer || buyingCard || activeSection !== 'menu') {
+        if (orderingOffer) setOrderingOffer(null);
+        else if (buyingCard) setBuyingCard(null);
+        else setActiveSection('menu');
+      } else {
+        CapacitorApp.exitApp();
+      }
+    });
+    return () => { backListener.then(h => h.remove()); };
+  }, [orderingOffer, buyingCard, activeSection]);
+
+  const visibleOffers = driveOffers.filter(o => o.operator === selectedDriveOp);
 
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-[#0f0c29] bg-gradient-to-tr from-[#0f0c29] via-[#302b63] to-[#24243e] flex items-center justify-center p-4 font-sans text-xs text-white">
         <div className="w-full max-w-sm bg-white/10 backdrop-blur-2xl border border-white/15 rounded-3xl p-6 shadow-2xl text-center space-y-5">
-          <Sparkles className="w-8 h-8 mx-auto animate-pulse text-indigo-400" />
-          <h2 className="text-base font-black">SIM OFFER SHOP</h2>
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 text-white flex items-center justify-center mx-auto shadow-lg shadow-indigo-500/40">
+            <Sparkles className="w-8 h-8 animate-pulse" />
+          </div>
+          <div>
+            <h2 className="text-base font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-purple-300 to-pink-300">SIM OFFER SHOP</h2>
+            <p className="text-[11px] text-slate-300 mt-1">প্রিমিয়াম টেলিযোগাযোগ সেবা</p>
+          </div>
           <div className="grid grid-cols-2 gap-1.5 bg-black/30 p-1 rounded-2xl border border-white/10">
-            <button onClick={() => setAuthView('login')} className={`py-2 rounded-xl font-bold ${authView === 'login' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}>লগইন</button>
-            <button onClick={() => setAuthView('register')} className={`py-2 rounded-xl font-bold ${authView === 'register' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}>একাউন্ট তৈরি</button>
+            <button onClick={() => setAuthView('login')} className={`py-2.5 rounded-xl font-bold transition-all ${authView === 'login' ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg' : 'text-slate-400'}`}>লগইন</button>
+            <button onClick={() => setAuthView('register')} className={`py-2.5 rounded-xl font-bold transition-all ${authView === 'register' ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg' : 'text-slate-400'}`}>একাউন্ট তৈরি</button>
           </div>
           {authView === 'login' ? (
-            <form onSubmit={(e) => { e.preventDefault(); if (inputPhone && inputPin) setIsLoggedIn(true); }} className="space-y-3 text-left">
-              <input type="tel" maxLength={11} placeholder="মোবাইল নম্বর" value={inputPhone} onChange={(e) => setInputPhone(e.target.value)} className="w-full bg-black/40 border rounded-xl p-3 text-xs text-white" />
-              <input type="password" placeholder="পিন (PIN)" value={inputPin} onChange={(e) => setInputPin(e.target.value)} className="w-full bg-black/40 border rounded-xl p-3 text-xs text-white" />
-              <button type="submit" className="w-full py-3 bg-indigo-600 text-white font-black rounded-xl">লগইন করুন</button>
+            <form onSubmit={(e) => { e.preventDefault(); if (inputPhone && inputPin) setIsLoggedIn(true); }} className="space-y-3.5 text-left">
+              <div>
+                <label className="text-[10px] font-bold text-indigo-200 block mb-1">মোবাইল নম্বর</label>
+                <input type="tel" maxLength={11} placeholder="017XXXXXXXX" value={inputPhone} onChange={(e) => setInputPhone(e.target.value)} className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs font-mono font-bold text-white focus:outline-none focus:border-indigo-400 shadow-inner" />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-indigo-200 block mb-1">সিক্রেট পিন (PIN)</label>
+                <input type="password" maxLength={6} placeholder="••••" value={inputPin} onChange={(e) => setInputPin(e.target.value)} className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs font-mono font-bold tracking-widest text-white focus:outline-none focus:border-indigo-400 shadow-inner" />
+              </div>
+              <button type="submit" className="w-full py-3.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:opacity-90 text-white font-black text-xs rounded-xl shadow-xl shadow-indigo-600/30 transition-all active:scale-95">লগইন করুন</button>
             </form>
           ) : (
-            <form onSubmit={(e) => { e.preventDefault(); if (inputName && inputPhone && inputPin) setIsLoggedIn(true); }} className="space-y-3 text-left">
-              <input type="text" placeholder="নাম" value={inputName} onChange={(e) => setInputName(e.target.value)} className="w-full bg-black/40 border rounded-xl p-3 text-xs text-white" />
-              <input type="tel" maxLength={11} placeholder="মোবাইল নম্বর" value={inputPhone} onChange={(e) => setInputPhone(e.target.value)} className="w-full bg-black/40 border rounded-xl p-3 text-xs text-white" />
-              <input type="password" placeholder="পিন (PIN)" value={inputPin} onChange={(e) => setInputPin(e.target.value)} className="w-full bg-black/40 border rounded-xl p-3 text-xs text-white" />
-              <button type="submit" className="w-full py-3 bg-emerald-600 text-white font-black rounded-xl">একাউন্ট তৈরি করুন</button>
+            <form onSubmit={(e) => { e.preventDefault(); if (inputName && inputPhone && inputPin) setIsLoggedIn(true); }} className="space-y-3.5 text-left">
+              <div>
+                <label className="text-[10px] font-bold text-indigo-200 block mb-1">আপনার নাম</label>
+                <input type="text" placeholder="যেমন: Md. Rahim" value={inputName} onChange={(e) => setInputName(e.target.value)} className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs font-bold text-white focus:outline-none focus:border-indigo-400 shadow-inner" />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-indigo-200 block mb-1">মোবাইল নম্বর</label>
+                <input type="tel" maxLength={11} placeholder="017XXXXXXXX" value={inputPhone} onChange={(e) => setInputPhone(e.target.value)} className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs font-mono font-bold text-white focus:outline-none focus:border-indigo-400 shadow-inner" />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-indigo-200 block mb-1">নতুন পিন (PIN)</label>
+                <input type="password" maxLength={6} placeholder="৪ বা ৬ ডিজিট" value={inputPin} onChange={(e) => setInputPin(e.target.value)} className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs font-mono font-bold tracking-widest text-white focus:outline-none focus:border-indigo-400 shadow-inner" />
+              </div>
+              <button type="submit" className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:opacity-90 text-white font-black text-xs rounded-xl shadow-xl shadow-emerald-600/30 transition-all active:scale-95">একাউন্ট তৈরি করুন</button>
             </form>
           )}
         </div>
@@ -248,65 +325,85 @@ export default function UserApp() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0d0b21] text-slate-100 flex flex-col font-sans text-xs">
+    <div className="min-h-screen bg-[#0d0b21] text-slate-100 flex flex-col font-sans text-xs relative">
+      {/* ফোর্স আপডেট স্ক্রিন (যদি চালু থাকে) */}
+      {forceUpdate.enabled && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4">
+          <div className="bg-[#18133a] border border-indigo-500/40 rounded-3xl p-6 max-w-xs w-full text-center space-y-4 shadow-2xl text-white">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-500 text-white flex items-center justify-center mx-auto shadow-lg animate-bounce">
+              <Download className="w-7 h-7" />
+            </div>
+            <h3 className="text-base font-black">নতুন আপডেট এসেছে!</h3>
+            <p className="text-[11px] text-slate-300 leading-relaxed">
+              অ্যাপের সিকিউরিটি ও নতুন ফিচার উপভোগ করতে দয়া করে এখনই অ্যাপটি আপডেট করে নিন।
+            </p>
+            <a href={forceUpdate.link} target="_blank" rel="noreferrer" className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-black text-xs rounded-xl shadow-lg flex items-center justify-center gap-2">
+              এখনই আপডেট করুন <Download className="w-4 h-4" />
+            </a>
+          </div>
+        </div>
+      )}
+
       <header className="bg-[#141032]/80 backdrop-blur-xl border-b border-white/10 px-4 py-3.5 flex items-center justify-between sticky top-0 z-20 shadow-lg">
         <div className="flex items-center gap-3">
-          {activeSection !== 'menu' && <button onClick={() => setActiveSection('menu')} className="p-2 -ml-2 rounded-2xl bg-white/5 border text-white"><ArrowLeft className="w-4 h-4" /></button>}
+          {activeSection !== 'menu' && <button onClick={() => setActiveSection('menu')} className="p-2 -ml-2 rounded-2xl bg-white/5 border border-white/10 text-white"><ArrowLeft className="w-4 h-4" /></button>}
           <div>
             <h2 className="text-xs font-black text-white">{userProfile.name}</h2>
             <p className="text-[10px] text-indigo-300 font-mono">{userProfile.phone}</p>
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          <button onClick={handlePullToRefresh} className={`p-2 rounded-2xl bg-white/5 border text-indigo-400 ${isRefreshing ? 'animate-spin' : ''}`}><RefreshCw className="w-3.5 h-3.5" /></button>
-          <button onClick={() => setActiveSection('notifications')} className="p-2 rounded-2xl bg-white/5 border text-amber-400"><Bell className="w-3.5 h-3.5" /></button>
-          <button onClick={() => setActiveSection('support')} className="px-2.5 py-2 rounded-2xl bg-emerald-500/10 border text-emerald-400 font-extrabold"><HelpCircle className="w-3.5 h-3.5" /></button>
-          <button onClick={() => setActiveSection('profile')} className="px-2.5 py-2 rounded-2xl bg-indigo-500/10 border text-indigo-300 font-extrabold"><UserIcon className="w-3.5 h-3.5" /></button>
+          <button onClick={handlePullToRefresh} className={`p-2 rounded-2xl bg-white/5 border border-white/10 text-indigo-400 ${isRefreshing ? 'animate-spin' : ''}`}><RefreshCw className="w-3.5 h-3.5" /></button>
+          <button onClick={() => setActiveSection('notifications')} className="p-2 rounded-2xl bg-white/5 border border-white/10 text-amber-400 relative">
+            <Bell className="w-3.5 h-3.5" />
+            {notifications.length > 0 && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full animate-ping" />}
+          </button>
+          <button onClick={() => setActiveSection('profile')} className="px-2.5 py-2 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 font-extrabold flex items-center gap-1"><UserIcon className="w-3.5 h-3.5" /></button>
         </div>
       </header>
 
-      <div className="bg-gradient-to-r from-amber-600 to-amber-500 text-white px-4 py-2 text-[11px] font-bold shadow-md flex items-center gap-2">
-        <span className="bg-black/40 text-amber-300 px-2 py-0.5 rounded text-[9px] uppercase font-black">Notice</span>
-        <span className="font-medium truncate">{runningNotice}</span>
+      <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-500 text-white px-4 py-2 text-[11px] font-bold shadow-md flex items-center gap-2">
+        <span className="bg-black/40 text-amber-300 px-2 py-0.5 rounded-lg text-[9px] uppercase font-black">Notice</span>
+        <marquee className="font-medium">{runningNotice}</marquee>
       </div>
 
       <main className="flex-1 p-4 max-w-lg mx-auto w-full overflow-y-auto space-y-4">
         {activeSection === 'menu' && (
           <div className="space-y-4">
-            <div className="bg-gradient-to-tr from-[#1a1442] to-[#120e2e] border border-white/10 rounded-3xl p-5 text-white shadow-2xl space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] font-bold text-purple-300 uppercase bg-white/10 px-3 py-1 rounded-xl">RETAILER ACCOUNT</span>
-                <span className="text-xs text-emerald-400 font-bold">Active</span>
+            <div className="bg-gradient-to-tr from-[#1a1442] via-[#241b5c] to-[#120e2e] border border-white/10 rounded-3xl p-5 text-white shadow-2xl space-y-3 relative overflow-hidden">
+              <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-purple-500/20 rounded-full blur-3xl pointer-events-none" />
+              <div className="flex justify-between items-center relative z-10">
+                <span className="text-[10px] font-bold text-purple-300 uppercase tracking-widest bg-white/10 px-3 py-1 rounded-xl border border-white/10 shadow-inner">RETAILER ACCOUNT</span>
+                <span className="text-xs text-emerald-400 font-bold flex items-center gap-1"><span className="w-2 h-2 bg-emerald-400 rounded-full animate-ping" /> Active</span>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-black/30 border border-white/10 rounded-2xl p-3.5">
-                  <span className="text-[10px] text-slate-400 block">মেইন ব্যালেন্স</span>
+              <div className="grid grid-cols-2 gap-3 pt-1 relative z-10">
+                <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-2xl p-3.5 shadow-inner">
+                  <span className="text-[10px] text-slate-400 block mb-0.5">মেইন ব্যালেন্স</span>
                   <h3 className="text-xl font-black font-mono text-white">৳{userProfile.mainBalance}</h3>
                 </div>
-                <div className="bg-black/30 border border-white/10 rounded-2xl p-3.5">
-                  <span className="text-[10px] text-slate-400 block">ড্রাইভ ব্যালেন্স</span>
+                <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-2xl p-3.5 shadow-inner">
+                  <span className="text-[10px] text-slate-400 block mb-0.5">ড্রাইভ ব্যালেন্স</span>
                   <h3 className="text-xl font-black font-mono text-amber-400">৳{userProfile.driveBalance}</h3>
                 </div>
               </div>
             </div>
 
             <div className="grid grid-cols-3 gap-3">
-              <button onClick={() => setActiveSection('flexiload')} className="bg-[#141032] border border-white/10 rounded-3xl p-4 flex flex-col items-center text-center shadow-lg"><Send className="w-5 h-5 text-sky-400 mb-2" /><span className="text-xs font-extrabold text-white">Flexiload</span></button>
-              <button onClick={() => setActiveSection('drive')} className="bg-[#141032] border border-white/10 rounded-3xl p-4 flex flex-col items-center text-center shadow-lg"><Flame className="w-5 h-5 text-amber-400 mb-2" /><span className="text-xs font-extrabold text-white">Drive Pack</span></button>
-              <button onClick={() => setActiveSection('scratch')} className="bg-[#141032] border border-white/10 rounded-3xl p-4 flex flex-col items-center text-center shadow-lg"><Ticket className="w-5 h-5 text-pink-400 mb-2" /><span className="text-xs font-extrabold text-white">Scratch Card</span></button>
-              <button onClick={() => setActiveSection('add_balance')} className="bg-[#141032] border border-white/10 rounded-3xl p-4 flex flex-col items-center text-center shadow-lg"><Wallet className="w-5 h-5 text-emerald-400 mb-2" /><span className="text-xs font-extrabold text-white">Add Balance</span></button>
-              <button onClick={() => setActiveSection('history')} className="bg-[#141032] border border-white/10 rounded-3xl p-4 flex flex-col items-center text-center shadow-lg"><History className="w-5 h-5 text-violet-400 mb-2" /><span className="text-xs font-extrabold text-white">History</span></button>
-              <button onClick={() => setActiveSection('chats')} className="bg-[#141032] border border-white/10 rounded-3xl p-4 flex flex-col items-center text-center shadow-lg"><MessageSquare className="w-5 h-5 text-blue-400 mb-2" /><span className="text-xs font-extrabold text-white">Live Chat</span></button>
+              <button onClick={() => setActiveSection('flexiload')} className="bg-[#141032] hover:bg-[#1c1747] border border-white/10 rounded-3xl p-4 flex flex-col items-center text-center shadow-lg active:scale-95 transition-all"><div className="w-12 h-12 rounded-2xl bg-sky-500/10 border border-sky-500/20 text-sky-400 flex items-center justify-center mb-2.5 shadow-inner"><Send className="w-5 h-5" /></div><span className="text-xs font-extrabold text-white">Flexiload</span></button>
+              <button onClick={() => setActiveSection('drive')} className="bg-[#141032] hover:bg-[#1c1747] border border-white/10 rounded-3xl p-4 flex flex-col items-center text-center shadow-lg active:scale-95 transition-all"><div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mb-2.5 shadow-inner"><Flame className="w-5 h-5" /></div><span className="text-xs font-extrabold text-white">Drive Pack</span></button>
+              <button onClick={() => setActiveSection('scratch')} className="bg-[#141032] hover:bg-[#1c1747] border border-white/10 rounded-3xl p-4 flex flex-col items-center text-center shadow-lg active:scale-95 transition-all"><div className="w-12 h-12 rounded-2xl bg-pink-500/10 border border-pink-500/20 text-pink-400 flex items-center justify-center mb-2.5 shadow-inner"><Ticket className="w-5 h-5" /></div><span className="text-xs font-extrabold text-white">Scratch Card</span></button>
+              <button onClick={() => setActiveSection('add_balance')} className="bg-[#141032] hover:bg-[#1c1747] border border-white/10 rounded-3xl p-4 flex flex-col items-center text-center shadow-lg active:scale-95 transition-all"><div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-2.5 shadow-inner"><Wallet className="w-5 h-5" /></div><span className="text-xs font-extrabold text-white">Add Balance</span></button>
+              <button onClick={() => setActiveSection('history')} className="bg-[#141032] hover:bg-[#1c1747] border border-white/10 rounded-3xl p-4 flex flex-col items-center text-center shadow-lg active:scale-95 transition-all"><div className="w-12 h-12 rounded-2xl bg-violet-500/10 border border-violet-500/20 text-violet-400 flex items-center justify-center mb-2.5 shadow-inner"><History className="w-5 h-5" /></div><span className="text-xs font-extrabold text-white">History</span></button>
+              <button onClick={() => setActiveSection('support')} className="bg-[#141032] hover:bg-[#1c1747] border border-white/10 rounded-3xl p-4 flex flex-col items-center text-center shadow-lg active:scale-95 transition-all"><div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-2.5 shadow-inner"><HelpCircle className="w-5 h-5" /></div><span className="text-xs font-extrabold text-white">Support</span></button>
             </div>
           </div>
         )}
 
-        {/* এড ব্যালেন্স পেজ (নোট, কপি অপশন ও হোল্ড কনফার্ম অ্যানিমেশনসহ) */}
+        {/* এড ব্যালেন্স (নোট, কপি, হোল্ড কনফার্ম) */}
         {activeSection === 'add_balance' && (
           <div className="space-y-3.5">
             {!addMoneyEnabled && <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-3 text-rose-300 font-bold text-center">⚠️ বর্তমানে Add Balance সার্ভিস বন্ধ রয়েছে।</div>}
             
-            {/* অ্যাডমিন নির্দেশিকা নোট বক্স */}
             <div className="bg-indigo-500/10 border border-indigo-500/30 rounded-2xl p-3 space-y-1">
               <div className="flex items-center gap-1.5 text-indigo-300 font-bold text-[11px]">
                 <FileText className="w-4 h-4 text-indigo-400 shrink-0" />
@@ -324,7 +421,6 @@ export default function UserApp() {
                 ))}
               </div>
 
-              {/* নম্বর কপি অপশনসহ বক্স */}
               <div className="bg-black/40 border border-white/10 rounded-2xl p-3 flex items-center justify-between">
                 <div>
                   <span className="text-[10px] text-slate-400 block">এই নম্বরে টাকা পাঠান:</span>
@@ -338,10 +434,9 @@ export default function UserApp() {
                 </button>
               </div>
 
-              <input type="number" placeholder="টাকার পরিমাণ (৳)" value={addAmount} onChange={(e) => setAddAmount(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-2.5 font-bold text-white" />
-              <input type="text" placeholder="TrxID (ট্রানজ্যাকশন আইডি)" value={trxId} onChange={(e) => setTrxId(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-2.5 font-bold uppercase text-white" />
+              <input type="number" placeholder="টাকার পরিমাণ (৳)" value={addAmount} onChange={(e) => setAddAmount(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 font-bold text-white focus:outline-none focus:border-indigo-500" />
+              <input type="text" placeholder="TrxID (ট্রানজ্যাকশন আইডি)" value={trxId} onChange={(e) => setTrxId(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 font-bold uppercase text-white focus:outline-none focus:border-indigo-500" />
 
-              {/* এড-মানির জন্য সওয়াইপ / হোল্ড টু কনফার্ম বাটন */}
               <div className="pt-2">
                 <p className="text-[10px] text-center text-amber-400 font-semibold mb-1.5">👇 পেমেন্ট কনফার্ম করতে নিচের বাটনটি চেপে ধরে রাখুন</p>
                 <div 
@@ -363,26 +458,32 @@ export default function UserApp() {
           </div>
         )}
 
-        {/* ফ্লেক্সিলোড পেজ */}
+        {/* ফ্লেক্সিলোড (অপারেটর ডিটেক্ট, সিম টাইপ, হোল্ড কনফার্ম) */}
         {activeSection === 'flexiload' && (
           <div className="bg-[#141032] border border-white/10 rounded-3xl p-4 space-y-4 shadow-xl text-white">
             <h4 className="font-bold border-b border-white/10 pb-2 flex items-center justify-between">
               <span>মোবাইল ফ্লেক্সিলোড / রিচার্জ</span>
-              <span className="text-xs uppercase font-extrabold text-indigo-400 bg-indigo-500/10 border px-2.5 py-1 rounded-xl">{flexiOperator}</span>
+              <span className="text-xs uppercase font-extrabold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1 rounded-xl">{flexiOperator}</span>
             </h4>
-            <div className="relative">
-              <input type="tel" maxLength={11} placeholder="017XXXXXXXX" value={flexiPhone} onChange={(e) => handlePhoneChange(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl pl-3 pr-24 py-3 font-bold font-mono text-white" />
-              <div className="absolute right-2 top-2 bg-indigo-600/30 border text-indigo-300 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase">
-                {flexiOperator === 'Grameenphone' ? 'GP' : flexiOperator === 'Banglalink' ? 'BL' : flexiOperator}
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 block mb-1">মোবাইল নম্বর (অপারেটর অটো ডিটেক্ট)</label>
+              <div className="relative">
+                <input type="tel" maxLength={11} placeholder="017XXXXXXXX" value={flexiPhone} onChange={(e) => handlePhoneChange(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl pl-3 pr-24 py-3 font-bold font-mono text-white focus:outline-none focus:border-indigo-500" />
+                <div className="absolute right-2 top-2 bg-indigo-600/30 border border-indigo-500/40 text-indigo-300 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase">
+                  {flexiOperator === 'Grameenphone' ? 'GP' : flexiOperator === 'Banglalink' ? 'BL' : flexiOperator}
+                </div>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-2">
-              {['Prepaid', 'Postpaid', 'Skitto'].map((type) => (
-                <button key={type} onClick={() => setSimType(type)} className={`py-2 rounded-xl font-bold text-xs border ${simType === type ? 'bg-indigo-600 text-white' : 'bg-black/30 text-slate-300'}`}>{type}</button>
-              ))}
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 block mb-1">সিম টাইপ নির্বাচন করুন</label>
+              <div className="grid grid-cols-3 gap-2">
+                {['Prepaid', 'Postpaid', 'Skitto'].map((type) => (
+                  <button key={type} type="button" onClick={() => setSimType(type)} className={`py-2 rounded-xl font-bold text-xs border ${simType === type ? 'bg-indigo-600 text-white border-indigo-500 shadow-md' : 'bg-black/30 text-slate-300 border-white/10'}`}>{type}</button>
+                ))}
+              </div>
             </div>
-            <input type="number" placeholder="টাকার পরিমাণ (৳)" value={flexiAmount} onChange={(e) => setFlexiAmount(e.target.value)} className="w-full bg-black/40 border rounded-xl p-3 font-bold text-white" />
-            <input type="password" maxLength={6} placeholder="সিক্রেট পিন (PIN)" value={flexiPin} onChange={(e) => setFlexiPin(e.target.value)} className="w-full bg-black/40 border rounded-xl p-3 font-mono font-bold tracking-widest text-white" />
+            <input type="number" placeholder="টাকার পরিমাণ (৳)" value={flexiAmount} onChange={(e) => setFlexiAmount(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 font-bold text-white focus:outline-none focus:border-indigo-500" />
+            <input type="password" maxLength={6} placeholder="আপনার সিক্রেট পিন (PIN)" value={flexiPin} onChange={(e) => setFlexiPin(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 font-mono font-bold tracking-widest text-white focus:outline-none focus:border-indigo-500" />
             
             <div className="pt-2">
               <p className="text-[10px] text-center text-amber-400 font-semibold mb-1.5">👇 রিচার্জ কনফার্ম করতে নিচের বাটনটি চেপে ধরে রাখুন</p>
@@ -404,63 +505,255 @@ export default function UserApp() {
           </div>
         )}
 
-        {/* অন্যান্য সেকশন */}
+        {/* ড্রাইভ প্যাক */}
+        {activeSection === 'drive' && (
+          <div className="space-y-3">
+            {!masterDriveEnabled || simStatus[selectedDriveOp] === false ? (
+              <div className="bg-rose-500/10 border border-rose-500/30 text-rose-300 rounded-3xl p-6 text-center space-y-2 shadow-xl">
+                <AlertCircle className="w-10 h-10 mx-auto text-rose-400" />
+                <h4 className="font-black text-sm">⚠️ ড্রাইভ অফার সাময়িকভাবে বন্ধ আছে</h4>
+                <p className="text-[11px] text-rose-400/80">দুঃখিত! এই মুহূর্তে অ্যাডমিন কর্তৃক ড্রাইভ অফারগুলো বন্ধ রাখা হয়েছে।</p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-5 gap-1 bg-[#141032] border border-white/10 p-1.5 rounded-2xl shadow-inner">
+                  {['Grameenphone', 'Robi', 'Banglalink', 'Airtel', 'Teletalk'].map((op) => (
+                    <button key={op} onClick={() => setSelectedDriveOp(op)} className={`py-2 rounded-xl text-[10px] font-black transition-all flex flex-col items-center justify-center ${selectedDriveOp === op ? 'bg-indigo-600 text-white shadow' : 'text-slate-400'}`}>
+                      <span>{op === 'Grameenphone' ? 'GP' : op === 'Banglalink' ? 'BL' : op}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="space-y-2.5">
+                  {visibleOffers.map((offer) => (
+                    <div key={offer.id} className="bg-[#141032] border border-white/10 rounded-2xl p-3.5 space-y-2 shadow-lg">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <span className="text-[9px] font-bold text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded uppercase">{offer.operator}</span>
+                          <h4 className="text-xs font-black text-white mt-1">{offer.title}</h4>
+                          {offer.note && <p className="text-[10px] text-slate-400 mt-0.5">📌 {offer.note}</p>}
+                        </div>
+                        <div className="text-right">
+                          <span className="text-sm font-black font-mono text-indigo-400 block">৳{offer.offerPrice}</span>
+                          <span className="text-[9px] text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">ক্যাশব্যাক ৳{offer.cashback}</span>
+                        </div>
+                      </div>
+                      <div className="flex justify-end pt-1 border-t border-white/10">
+                        <button onClick={() => setOrderingOffer({ ...offer, price: offer.offerPrice })} className="py-1.5 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-xs rounded-xl shadow-md active:scale-95">কিনুন</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {orderingOffer && (
+              <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+                <div className="bg-[#18133a] border border-white/15 rounded-3xl p-5 max-w-xs w-full space-y-3.5 shadow-2xl text-white">
+                  <h4 className="text-xs font-black border-b border-white/10 pb-2">{orderingOffer.title} - ৳{orderingOffer.price}</h4>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-300 block mb-1">প্রাপক মোবাইল নম্বর</label>
+                    <input type="tel" maxLength={11} placeholder="01XXXXXXXXX" value={targetDriveNumber} onChange={(e) => setTargetDriveNumber(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs font-mono font-bold text-white focus:outline-none focus:border-indigo-500" />
+                  </div>
+                  <div className="bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-2xl space-y-2">
+                    <label className="text-[11px] font-extrabold text-amber-300 block">⚠️ এই নাম্বারে কি লোন আছে?</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button type="button" onClick={() => setHasSimLoan(true)} className={`py-2 rounded-xl font-bold text-xs ${hasSimLoan === true ? 'bg-rose-600 text-white' : 'bg-black/30 text-slate-300 border border-white/10'}`}>হ্যাঁ</button>
+                      <button type="button" onClick={() => setHasSimLoan(false)} className={`py-2 rounded-xl font-bold text-xs ${hasSimLoan === false ? 'bg-emerald-600 text-white' : 'bg-black/30 text-slate-300 border border-white/10'}`}>না</button>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setOrderingOffer(null)} className="flex-1 py-3 bg-white/10 text-slate-300 rounded-xl font-bold">বাতিল</button>
+                    <button disabled={hasSimLoan === true} onClick={handleConfirmDriveOrder} className={`flex-1 py-3 text-white font-bold rounded-xl ${hasSimLoan === true ? 'bg-slate-600 opacity-50' : 'bg-emerald-600 shadow-lg'}`}>কনফার্ম</button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* স্ক্র্যাচ কার্ড */}
+        {activeSection === 'scratch' && (
+          <div className="space-y-3">
+            <h4 className="font-bold text-slate-300 px-1">স্ক্র্যাচ কার্ড অফারসমূহ</h4>
+            {scratchCards.map((card) => (
+              <div key={card.id} className="bg-[#141032] border border-white/10 rounded-2xl p-4 space-y-3 shadow-lg">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <span className="font-black text-white text-xs">{card.title}</span>
+                    <p className="text-[10px] text-slate-400 mt-0.5">টাইপ: {card.type}</p>
+                  </div>
+                  <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-xl">৳{card.price}</span>
+                </div>
+                <div className="flex justify-end pt-1 border-t border-white/10">
+                  <button onClick={() => { setBuyingCard(card); setTargetCardNumber(''); }} className="py-1.5 px-4 bg-gradient-to-r from-pink-600 to-purple-600 text-white font-bold text-xs rounded-xl flex items-center gap-1 active:scale-95 shadow-md"><ShoppingCart className="w-3.5 h-3.5" /> কিনুন</button>
+                </div>
+              </div>
+            ))}
+
+            {buyingCard && (
+              <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+                <div className="bg-[#18133a] border border-white/15 rounded-3xl p-5 max-w-xs w-full space-y-3.5 shadow-2xl text-white">
+                  <div className="border-b border-white/10 pb-2">
+                    <h4 className="text-xs font-black">{buyingCard.title}</h4>
+                    <p className="text-xs font-mono font-bold text-emerald-400">মূল্য: ৳{buyingCard.price}</p>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-300 block mb-1">যে নম্বরে অফারটি নিতে চান (১১ ডিজিট)</label>
+                    <input type="tel" maxLength={11} placeholder="017XXXXXXXX" value={targetCardNumber} onChange={(e) => setTargetCardNumber(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs font-mono font-bold text-white focus:outline-none focus:border-indigo-500" />
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setBuyingCard(null)} className="flex-1 py-3 bg-white/10 text-slate-300 rounded-xl font-bold">বাতিল</button>
+                    <button disabled={targetCardNumber.length < 11} onClick={handleConfirmBuyCard} className={`flex-1 py-3 text-white font-bold rounded-xl ${targetCardNumber.length < 11 ? 'bg-slate-600 opacity-50' : 'bg-emerald-600 shadow-lg'}`}>কনফার্ম</button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* নোটিফিকেশন */}
         {activeSection === 'notifications' && (
           <div className="space-y-3">
             <h4 className="font-bold text-slate-300 px-1">নোটিফিকেশন ইনবক্স ({notifications.length})</h4>
-            {notifications.map((n) => (
-              <div key={n.id} className="bg-[#141032] border border-white/10 rounded-2xl p-4 space-y-1.5 shadow-lg">
-                <div className="flex justify-between items-center"><h5 className="font-bold text-white text-xs">{n.title}</h5><span className="text-[9px] text-slate-400 font-mono">{n.time}</span></div>
-                <p className="text-slate-300 text-[11px]">{n.msg}</p>
-              </div>
-            ))}
+            {notifications.length === 0 ? (
+              <div className="bg-[#141032] border border-white/10 rounded-3xl p-6 text-center text-slate-400">কোনো নতুন নোটিফিকেশন নেই।</div>
+            ) : (
+              notifications.map((n) => (
+                <div key={n.id} className="bg-[#141032] border border-white/10 rounded-2xl p-4 space-y-1.5 shadow-lg">
+                  <div className="flex justify-between items-center"><h5 className="font-bold text-white text-xs">{n.title}</h5><span className="text-[9px] text-slate-400 font-mono">{n.time}</span></div>
+                  <p className="text-slate-300 text-[11px] leading-relaxed">{n.msg}</p>
+                </div>
+              ))
+            )}
           </div>
         )}
 
+        {/* সাপোর্ট */}
         {activeSection === 'support' && (
           <div className="bg-[#141032] border border-white/10 rounded-3xl p-5 text-center space-y-3 shadow-xl">
-            <HelpCircle className="w-6 h-6 mx-auto text-emerald-400" />
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto shadow-inner"><HelpCircle className="w-6 h-6" /></div>
             <h3 className="text-sm font-black text-white">অ্যাডমিন সাপোর্ট ও যোগাযোগ</h3>
             <div className="grid grid-cols-2 gap-2.5 pt-2">
-              <a href={adminSocialLinks.facebookPage} target="_blank" rel="noreferrer" className="py-3 bg-blue-500/10 border text-blue-400 font-bold rounded-2xl flex items-center justify-center gap-2"><Facebook className="w-4 h-4" /> ফেসবুক পেজ</a>
-              <a href={`https://wa.me/${adminSocialLinks.whatsappNumber.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" className="py-3 bg-emerald-500/10 border text-emerald-400 font-bold rounded-2xl flex items-center justify-center gap-2"><MessageCircle className="w-4 h-4" /> হোয়াটসঅ্যাপ</a>
+              <a href={adminSocialLinks.facebookPage} target="_blank" rel="noreferrer" className="py-3 bg-blue-500/10 border border-blue-500/30 text-blue-400 font-bold rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all"><Facebook className="w-4 h-4" /> ফেসবুক পেজ</a>
+              <a href={`https://wa.me/${adminSocialLinks.whatsappNumber.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" className="py-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all"><MessageCircle className="w-4 h-4" /> হোয়াটসঅ্যাপ</a>
             </div>
           </div>
         )}
 
+        {/* প্রোফাইল */}
         {activeSection === 'profile' && (
-          <div className="bg-[#141032] border border-white/10 rounded-3xl p-5 text-center space-y-3 shadow-xl">
-            <h3 className="text-sm font-black text-white">{userProfile.name}</h3>
-            <p className="text-xs text-slate-400 font-mono">📱 {userProfile.phone}</p>
-            <div className="flex items-center justify-center gap-1.5">
-              <span className="text-xs text-indigo-300 font-mono">🔒 পিন: {showPin ? userProfile.pin : '••••'}</span>
-              <button onClick={() => setShowPin(!showPin)} className="text-indigo-400 p-1">{showPin ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}</button>
+          <div className="space-y-4">
+            <div className="bg-[#141032] border border-white/10 rounded-3xl p-5 text-center space-y-3 shadow-xl">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 text-white flex items-center justify-center font-black text-2xl mx-auto shadow-lg">{userProfile.name.charAt(0)}</div>
+              <div>
+                <h3 className="text-sm font-black text-white">{userProfile.name}</h3>
+                <p className="text-xs text-slate-400 font-mono mt-1">📱 {userProfile.phone}</p>
+                <div className="flex items-center justify-center gap-1.5 mt-2">
+                  <span className="text-xs text-indigo-300 font-mono">🔒 পিন: {showPin ? userProfile.pin : '••••'}</span>
+                  <button onClick={() => setShowPin(!showPin)} className="text-indigo-400 p-1">{showPin ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}</button>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-[#141032] border border-white/10 rounded-3xl p-4 space-y-3 shadow-xl">
+              <h4 className="font-bold text-white border-b border-white/10 pb-2 flex items-center gap-1.5"><Key className="w-4 h-4 text-indigo-400" /> পিন পরিবর্তন করুন</h4>
+              <input type="password" maxLength={6} placeholder="পুরনো পিন" value={oldPinInput} onChange={(e) => setOldPinInput(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 font-mono font-bold text-white focus:outline-none focus:border-indigo-500" />
+              <input type="password" maxLength={6} placeholder="নতুন পিন" value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 font-mono font-bold text-white focus:outline-none focus:border-indigo-500" />
+              <button onClick={handleUpdatePin} className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-xl shadow-lg active:scale-95 transition-all">পিন আপডেট করুন</button>
             </div>
           </div>
         )}
 
+        {/* হিস্ট্রি */}
         {activeSection === 'history' && (
-          <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-1 bg-[#141032] border p-1 rounded-xl">
-              <button onClick={() => setHistoryTab('add_money')} className={`py-1.5 rounded-lg font-bold ${historyTab === 'add_money' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}>এড-মানি</button>
-              <button onClick={() => setHistoryTab('flexiload')} className={`py-1.5 rounded-lg font-bold ${historyTab === 'flexiload' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}>রিচার্জ</button>
-              <button onClick={() => setHistoryTab('drive')} className={`py-1.5 rounded-lg font-bold ${historyTab === 'drive' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}>ড্রাইভ</button>
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-1 bg-[#141032] border border-white/10 p-1.5 rounded-2xl shadow-inner">
+              <button onClick={() => setHistoryTab('add_money')} className={`py-2 rounded-xl font-bold transition-all ${historyTab === 'add_money' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400'}`}>এড-মানি</button>
+              <button onClick={() => setHistoryTab('flexiload')} className={`py-2 rounded-xl font-bold transition-all ${historyTab === 'flexiload' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400'}`}>রিচার্জ</button>
+              <button onClick={() => setHistoryTab('drive')} className={`py-2 rounded-xl font-bold transition-all ${historyTab === 'drive' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400'}`}>ড্রাইভ</button>
             </div>
-            {historyTab === 'add_money' && userAddMoneyLogs.map(log => (
-              <div key={log.id} className="bg-[#141032] border rounded-xl p-3 flex justify-between items-center text-white">
-                <div><p className="font-bold">৳{log.amount} ({log.method})</p><p className="text-[10px] text-slate-400">TrxID: {log.trxId}</p></div>
-                <span className="text-[10px] font-bold px-2 py-1 rounded bg-amber-500/20 text-amber-300">{log.status}</span>
+
+            {historyTab === 'add_money' && (
+              <div className="space-y-3">
+                {userAddMoneyLogs.length === 0 && <div className="text-center text-slate-500 py-4">কোনো ডাটা নেই</div>}
+                {userAddMoneyLogs.map(log => (
+                  <div key={log.id} className="bg-[#141032] border border-white/10 rounded-2xl p-4 flex justify-between items-center shadow-lg text-white">
+                    <div>
+                      <p className="font-bold text-sm">৳{log.amount} <span className="text-emerald-400 text-[10px]">({log.method})</span></p>
+                      <p className="text-[10px] text-slate-400 mt-1">TrxID: <span className="font-mono text-indigo-300">{log.trxId}</span></p>
+                    </div>
+                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-xl border ${log.status === 'Approved' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : log.status === 'Cancelled' ? 'bg-rose-500/10 text-rose-400 border-rose-500/30' : 'bg-amber-500/10 text-amber-400 border-amber-500/30'}`}>{log.status}</span>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
+
+            {historyTab === 'recharge' && (
+              <div className="space-y-3">
+                {userFlexiLogs.length === 0 && <div className="text-center text-slate-500 py-4">কোনো ডাটা নেই</div>}
+                {userFlexiLogs.map(ord => (
+                  <div key={ord.id} className="bg-[#141032] border border-white/10 rounded-2xl p-4 flex justify-between items-center shadow-lg text-white">
+                    <div>
+                      <p className="font-bold text-sm">{ord.operator} - ৳{ord.amount}</p>
+                      <p className="text-[10px] text-slate-400 mt-1 font-mono">{ord.targetNumber}</p>
+                    </div>
+                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-xl border ${ord.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : ord.status === 'Cancelled' ? 'bg-rose-500/10 text-rose-400 border-rose-500/30' : 'bg-amber-500/10 text-amber-400 border-amber-500/30'}`}>{ord.status}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {historyTab === 'drive' && (
+              <div className="space-y-3">
+                {userDriveLogs.length === 0 && <div className="text-center text-slate-500 py-4">কোনো ডাটা নেই</div>}
+                {userDriveLogs.map(ord => (
+                  <div key={ord.id} className="bg-[#141032] border border-white/10 rounded-2xl p-4 flex justify-between items-center shadow-lg text-white">
+                    <div>
+                      <p className="font-bold text-sm">{ord.operator} - ৳{ord.price}</p>
+                      <p className="text-[10px] text-slate-400 mt-1 font-mono">{ord.targetNumber}</p>
+                    </div>
+                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-xl border ${ord.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : ord.status === 'Cancelled' ? 'bg-rose-500/10 text-rose-400 border-rose-500/30' : 'bg-amber-500/10 text-amber-400 border-amber-500/30'}`}>{ord.status}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* লাইভ চ্যাট */}
+        {activeSection === 'chats' && (
+          <div className="bg-[#141032] border border-white/10 rounded-3xl p-4 h-[420px] flex flex-col shadow-xl text-white">
+            <div className="border-b border-white/10 pb-2 mb-2 flex items-center justify-between">
+              <span className="font-bold">অ্যাডমিনের সাথে লাইভ চ্যাট</span>
+              <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" />
+            </div>
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1 py-2">
+              {chatMessages.map((msg, i) => (
+                <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-xs shadow-lg ${msg.sender === 'user' ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-br-none' : 'bg-white/10 border border-white/5 text-slate-200 rounded-bl-none'}`}>
+                    {msg.text}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2 pt-3 border-t border-white/10 mt-2">
+              <input type="text" placeholder="মেসেজ লিখুন..." value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendChatMessage()} className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-indigo-500" />
+              <button onClick={handleSendChatMessage} className="p-3 bg-indigo-600 text-white rounded-xl shadow-lg active:scale-95"><Send className="w-4 h-4" /></button>
+            </div>
           </div>
         )}
       </main>
 
+      {/* পপআপ অ্যালার্ট */}
       {popupAlert && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-[#18133a] border border-white/15 rounded-3xl p-5 max-w-xs w-full text-center space-y-4 shadow-2xl text-white">
-            <h4 className="text-xs font-black">{popupAlert}</h4>
-            <button onClick={() => setPopupAlert(null)} className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-xl shadow-lg">ঠিক আছে</button>
+          <div className="bg-[#18133a] border border-white/15 rounded-3xl p-6 max-w-xs w-full text-center space-y-4 shadow-2xl text-white">
+            <div className="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto border border-emerald-500/30 shadow-inner">
+              <Check className="w-7 h-7 stroke-[3]" />
+            </div>
+            <h4 className="text-xs font-black leading-relaxed text-slate-200">{popupAlert}</h4>
+            <button onClick={() => setPopupAlert(null)} className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-xl shadow-lg active:scale-95">ঠিক আছে</button>
           </div>
         </div>
       )}
