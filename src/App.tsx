@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { App as CapApp } from '@capacitor/app';
-import { CheckCircle2, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, WifiOff, RefreshCw } from 'lucide-react';
 import { UserProfile, Transaction, ScreenId, OperatorId, ConnectionType, DrivePackage } from './types';
 import { INITIAL_USER, INITIAL_TRANSACTIONS, OPERATORS } from './data/mockData';
 import { AuthScreenView } from './components/screens/AuthScreenView';
@@ -21,15 +21,32 @@ export default function App() {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  
+  // ইন্টারনেট কানেকশন স্টেট
+  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
 
-  // নতুন স্ক্রিনে যাওয়ার হ্যান্ডলার
+  // ইন্টারনেট কানেকশন লিসেনার
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // নতুন স্ক্রিনে যাওয়ার হ্যান্ডলার
   const navigateTo = (screen: ScreenId) => {
     if (screen === currentScreen) return;
     setHistoryStack((prev) => [...prev, screen]);
     setCurrentScreen(screen);
   };
 
-  // একটি পেজ পেছনে যাওয়ার হ্যান্ডলার
+  // একটি পেজ পেছনে যাওয়ার হ্যান্ডলার
   const goBack = () => {
     if (historyStack.length > 1) {
       const newStack = [...historyStack];
@@ -48,6 +65,11 @@ export default function App() {
 
     const setupBackButton = async () => {
       backHandler = await CapApp.addListener('backButton', () => {
+        if (!isOnline) {
+          CapApp.exitApp();
+          return;
+        }
+
         if (showExitConfirm) {
           setShowExitConfirm(false);
         } else if (isTransferModalOpen) {
@@ -67,7 +89,7 @@ export default function App() {
         backHandler.remove();
       }
     };
-  }, [showExitConfirm, isTransferModalOpen, isNotificationsOpen, historyStack, currentScreen]);
+  }, [showExitConfirm, isTransferModalOpen, isNotificationsOpen, historyStack, currentScreen, isOnline]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -204,6 +226,28 @@ export default function App() {
     setTransactions((prev) => [newTxn, ...prev]);
     showToast(`Transferred ৳${amount} from ${from} to ${to} balance.`);
   };
+
+  // ইন্টারনেট না থাকলে দেখাবে এই ফুল-স্ক্রিন নোটিশ
+  if (!isOnline) {
+    return (
+      <div className="min-h-screen w-full bg-slate-900 text-white flex flex-col items-center justify-center p-6 text-center select-none">
+        <div className="w-20 h-20 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-500 mb-6 shadow-xl shadow-rose-500/10">
+          <WifiOff className="w-10 h-10 animate-pulse" />
+        </div>
+        <h2 className="text-xl font-black tracking-tight mb-2">ইন্টারনেট সংযোগ নেই!</h2>
+        <p className="text-xs text-slate-400 max-w-xs leading-relaxed mb-8">
+          SIM OFFER SHOP অ্যাপটি ব্যবহার করতে আপনার মোবাইলের ইন্টারনেট (Wi-Fi বা মোবাইল ডাটা) চালু করুন।
+        </p>
+        <button
+          onClick={() => setIsOnline(navigator.onLine)}
+          className="w-full max-w-xs py-3.5 bg-indigo-600 hover:bg-indigo-500 active:scale-95 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 transition-all"
+        >
+          <RefreshCw className="w-4 h-4" />
+          <span>পুনরায় চেষ্টা করুন</span>
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen w-full bg-slate-50 flex flex-col font-sans select-none text-slate-900 overflow-x-hidden">
