@@ -1,27 +1,23 @@
-import React, { useState } from 'react';
-import {
-  Bell,
-  Eye,
-  EyeOff,
-  Smartphone,
-  Flame,
-  Package,
-  Wallet,
-  ArrowLeftRight,
-  History,
-  Megaphone,
+import React from 'react';
+import { 
+  Bell, 
+  LogOut, 
+  Send, 
+  Flame, 
+  Package, 
+  Wallet, 
+  ArrowLeftRight, 
+  History, 
+  Facebook, 
+  MessageCircle, 
+  Headphones, 
+  Settings,
   ChevronRight,
-  LogOut,
-  User,
-  Clock,
-  CheckCircle,
-  XCircle,
-  ShieldCheck,
-  Zap,
+  ExternalLink
 } from 'lucide-react';
-import { UserProfile, Transaction, ScreenId } from '../../types';
+import { UserProfile, ScreenId, Transaction } from '../../types';
 
-interface HomeDashboardViewProps {
+interface HomeDashboardProps {
   user: UserProfile;
   transactions: Transaction[];
   onNavigate: (screen: ScreenId) => void;
@@ -30,341 +26,222 @@ interface HomeDashboardViewProps {
   onLogout: () => void;
 }
 
-export const HomeDashboardView: React.FC<HomeDashboardViewProps> = ({
+export const HomeDashboardView: React.FC<HomeDashboardProps> = ({
   user,
-  transactions,
   onNavigate,
   onOpenNotifications,
   onOpenTransfer,
   onLogout,
 }) => {
-  const [showBalance, setShowBalance] = useState(false);
+  // সাপোর্ট ও সোশাল লিঙ্ক অ্যাকশন
+  const openExternal = (url: string) => {
+    window.open(url, '_blank');
+  };
 
   return (
-    <div className="flex-1 bg-[#F1F5F9] overflow-y-auto pb-6 font-sans text-slate-800">
-      {/* Geometric Balance Top Header */}
-      <header className="bg-white border-b border-slate-200 px-4 py-3.5 flex items-center justify-between sticky top-0 z-20 shadow-xs">
+    <div className="min-h-screen bg-slate-50 flex flex-col pb-8 select-none">
+      {/* টপ বার / হেডার */}
+      <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between sticky top-0 z-20 shadow-sm">
         <div className="flex items-center gap-3">
-    <img src="/logo.png.jpg" alt="Logo" className="w-10 h-10 rounded-xl object-cover shadow-sm border border-slate-200" />
+          <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-indigo-200">
+            {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+          </div>
           <div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-bold text-xs text-slate-900 tracking-tight">{user.name}</span>
-              <span className="px-1.5 py-0.2 bg-indigo-50 border border-indigo-200 text-indigo-700 font-extrabold text-[9px] rounded uppercase tracking-wider">
-                {user.resellerLevel}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 text-[10px] text-slate-500">
-              <span>{user.phone}</span>
-              <span className="text-slate-300">•</span>
-              <span className="text-emerald-600 font-semibold flex items-center gap-0.5">
-                <ShieldCheck className="w-3 h-3" /> Bio-Active
-              </span>
-            </div>
+            <h2 className="text-sm font-bold text-slate-900 leading-tight">{user.name}</h2>
+            <p className="text-xs text-slate-500 font-medium">{user.phone}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Notification Button */}
+        <div className="flex items-center gap-1">
           <button
             onClick={onOpenNotifications}
-            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center border border-slate-200 relative transition-colors"
-            title="Notifications"
+            className="p-2 rounded-xl text-slate-600 hover:bg-slate-100 active:scale-95 transition-all relative"
           >
-            <Bell className="w-4 h-4" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white" />
+            <Bell className="w-5 h-5" />
+            <span className="w-2 h-2 bg-red-500 rounded-full absolute top-2 right-2 border-2 border-white" />
           </button>
-
-          {/* Logout Button */}
           <button
             onClick={onLogout}
-            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 flex items-center justify-center border border-slate-200 transition-colors"
-            title="Logout"
+            className="p-2 rounded-xl text-slate-600 hover:bg-rose-50 hover:text-rose-600 active:scale-95 transition-all"
           >
-            <LogOut className="w-3.5 h-3.5" />
+            <LogOut className="w-5 h-5" />
           </button>
         </div>
       </header>
 
-      {/* Tap to View Balance Pill Header Bar */}
-      <div className="bg-slate-900 text-white px-4 py-3 flex items-center justify-between shadow-xs">
-        <div className="flex flex-col">
-          <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">
-            Total Combined Funds
-          </span>
-          <span className="text-xs font-semibold text-indigo-400">
-            {showBalance
-              ? `৳ ${(user.mainBalance + user.driveBalance).toLocaleString('en-US', { minimumFractionDigits: 2 })}`
-              : '৳ •••••••••'}
-          </span>
-        </div>
-
-        {/* Balance Toggle Pill with Eye Icon */}
-        <button
-          onClick={() => setShowBalance(!showBalance)}
-          className="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-full flex items-center gap-2 border border-slate-700 cursor-pointer transition-all active:scale-95"
-        >
-          <span className="text-xs font-bold text-slate-200">
-            {showBalance ? 'Hide Balance' : 'Tap to View'}
-          </span>
-          {showBalance ? (
-            <EyeOff className="w-3.5 h-3.5 text-indigo-400" />
-          ) : (
-            <Eye className="w-3.5 h-3.5 text-indigo-400" />
-          )}
-        </button>
-      </div>
-
-      {/* Scrolling Marquee Notice Alert Bar in Deep Indigo */}
-      <div className="bg-indigo-900 text-white py-1.5 px-3 overflow-hidden whitespace-nowrap flex items-center shadow-xs">
-        <span className="bg-red-500 text-[9px] font-black px-1.5 py-0.5 rounded mr-2 uppercase tracking-wider shrink-0 shadow-xs">
-          ALERT
-        </span>
-        <div className="w-full overflow-hidden whitespace-nowrap">
-          <div className="inline-block animate-marquee text-[11px] font-medium text-slate-100 tracking-wide">
-            📢 GP, Robi & Airtel New Drive Packs updated! 50GB + 1000 Min at ৳499 (৳120 Cashback). bKash & Nagad Add Balance instant auto-verify active.
-          </div>
-        </div>
-      </div>
-
-      <div className="p-4 space-y-4">
-        {/* Geometric Balance: Dual-Card Balance Grid (2 Columns) */}
-        <section className="grid grid-cols-2 gap-3">
-          {/* 1. Main Balance Card */}
-          <div className="bg-white p-3.5 rounded-2xl shadow-xs border border-slate-100 flex flex-col justify-between transition-all hover:shadow-sm">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">
-                Main Balance
-              </span>
-              <div className="w-8 h-8 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-sm font-black shadow-xs">
-                ৳
-              </div>
-            </div>
-            <div>
-              <p className="text-lg font-black text-slate-900 tracking-tight">
-                {showBalance
-                  ? `৳ ${user.mainBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
-                  : '৳ ••••••'}
-              </p>
-              <p className="text-[10px] text-indigo-600 font-bold mt-0.5 flex items-center gap-1">
-                <span>Flexiload / Top-Up</span>
-              </p>
-            </div>
-          </div>
-
-          {/* 2. Drive Balance Card */}
-          <div className="bg-white p-3.5 rounded-2xl shadow-xs border border-slate-100 flex flex-col justify-between transition-all hover:shadow-sm">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">
-                Drive Balance
-              </span>
-              <div className="w-8 h-8 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center text-sm font-black shadow-xs">
-                🎁
-              </div>
-            </div>
-            <div>
-              <p className="text-lg font-black text-slate-900 tracking-tight">
-                {showBalance
-                  ? `৳ ${user.driveBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
-                  : '৳ ••••••'}
-              </p>
-              <p className="text-[10px] text-orange-600 font-bold mt-0.5 flex items-center gap-1">
-                <span>High Commission Packs</span>
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* Quick Actions (Geometric Balance Grid) */}
-        <section>
-          <div className="flex items-center justify-between mb-2.5">
-            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-              Quick Actions
-            </h2>
-            <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">
-              Services
+      {/* ব্যালেন্স কার্ড */}
+      <div className="p-4">
+        <div className="bg-gradient-to-tr from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-5 text-white shadow-xl shadow-indigo-950/20 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-36 h-36 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
+          
+          <div className="flex justify-between items-center mb-4">
+            <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider bg-white/10 px-2.5 py-1 rounded-lg backdrop-blur-md">
+              {user.resellerLevel || 'Reseller'} Account
+            </span>
+            <span className="text-xs text-emerald-400 font-bold flex items-center gap-1">
+              <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" /> Active
             </span>
           </div>
 
-          <div className="grid grid-cols-3 gap-2.5">
-            {/* 1. Flexiload */}
-            <div
-              onClick={() => onNavigate('flexiload')}
-              className="bg-white p-3 rounded-xl border border-slate-100 flex flex-col items-center justify-center gap-1.5 cursor-pointer hover:border-indigo-500 transition-all shadow-xs group active:scale-95"
-            >
-              <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center text-base group-hover:scale-105 transition-transform shadow-xs">
-                <Smartphone className="w-5 h-5" />
-              </div>
-              <span className="text-xs font-bold text-slate-800">Flexiload</span>
-              <span className="text-[9px] text-slate-400">Mobile Top-Up</span>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-3 backdrop-blur-sm">
+              <p className="text-[11px] text-slate-400 font-medium mb-0.5">মেইন ব্যালেন্স</p>
+              <h3 className="text-lg font-black tracking-tight text-white">৳ {user.mainBalance.toLocaleString()}</h3>
             </div>
-
-            {/* 2. Drive Pack */}
-            <div
-              onClick={() => onNavigate('drive')}
-              className="bg-white p-3 rounded-xl border border-slate-100 flex flex-col items-center justify-center gap-1.5 cursor-pointer hover:border-indigo-500 transition-all shadow-xs group active:scale-95 relative"
-            >
-              <span className="absolute top-1 right-1 px-1.5 py-0.2 bg-red-500 text-white text-[8px] font-black rounded uppercase">
-                HOT
-              </span>
-              <div className="w-10 h-10 bg-red-50 text-red-600 rounded-full flex items-center justify-center text-base group-hover:scale-105 transition-transform shadow-xs">
-                <Flame className="w-5 h-5" />
-              </div>
-              <span className="text-xs font-bold text-slate-800">Drive Pack</span>
-              <span className="text-[9px] text-slate-400">Data & Minutes</span>
-            </div>
-
-            {/* 3. Regular Packages */}
-            <div
-              onClick={() => onNavigate('drive')}
-              className="bg-white p-3 rounded-xl border border-slate-100 flex flex-col items-center justify-center gap-1.5 cursor-pointer hover:border-indigo-500 transition-all shadow-xs group active:scale-95"
-            >
-              <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center text-base group-hover:scale-105 transition-transform shadow-xs">
-                <Package className="w-5 h-5" />
-              </div>
-              <span className="text-xs font-bold text-slate-800">Regular Pack</span>
-              <span className="text-[9px] text-slate-400">Bundles</span>
-            </div>
-
-            {/* 4. Add Balance */}
-            <div
-              onClick={() => onNavigate('add_balance')}
-              className="bg-white p-3 rounded-xl border border-slate-100 flex flex-col items-center justify-center gap-1.5 cursor-pointer hover:border-indigo-500 transition-all shadow-xs group active:scale-95"
-            >
-              <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center text-base group-hover:scale-105 transition-transform shadow-xs">
-                <Wallet className="w-5 h-5" />
-              </div>
-              <span className="text-xs font-bold text-slate-800">Add Balance</span>
-              <span className="text-[9px] text-slate-400">bKash/Nagad</span>
-            </div>
-
-            {/* 5. Transfer Balance */}
-            <div
-              onClick={onOpenTransfer}
-              className="bg-white p-3 rounded-xl border border-slate-100 flex flex-col items-center justify-center gap-1.5 cursor-pointer hover:border-indigo-500 transition-all shadow-xs group active:scale-95"
-            >
-              <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-base group-hover:scale-105 transition-transform shadow-xs">
-                <ArrowLeftRight className="w-5 h-5" />
-              </div>
-              <span className="text-xs font-bold text-slate-800">Transfer</span>
-              <span className="text-[9px] text-slate-400">Main ⇄ Drive</span>
-            </div>
-
-            {/* 6. History */}
-            <div
-              onClick={() => onNavigate('history')}
-              className="bg-white p-3 rounded-xl border border-slate-100 flex flex-col items-center justify-center gap-1.5 cursor-pointer hover:border-indigo-500 transition-all shadow-xs group active:scale-95"
-            >
-              <div className="w-10 h-10 bg-slate-100 text-slate-700 rounded-full flex items-center justify-center text-base group-hover:scale-105 transition-transform shadow-xs">
-                <History className="w-5 h-5" />
-              </div>
-              <span className="text-xs font-bold text-slate-800">History</span>
-              <span className="text-[9px] text-slate-400">All Reports</span>
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-3 backdrop-blur-sm">
+              <p className="text-[11px] text-slate-400 font-medium mb-0.5">ড্রাইভ ব্যালেন্স</p>
+              <h3 className="text-lg font-black tracking-tight text-amber-400">৳ {user.driveBalance.toLocaleString()}</h3>
             </div>
           </div>
-        </section>
+        </div>
+      </div>
 
-        {/* Operator Services Section (Geometric Grid) */}
-        <section className="bg-white rounded-2xl shadow-xs border border-slate-100 p-3.5">
-          <h2 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2.5">
-            Operator Network Live Status
-          </h2>
-          <div className="grid grid-cols-4 gap-2">
-            <div className="p-2 rounded-xl border border-blue-100 bg-blue-50/40 flex flex-col justify-center items-center gap-1">
-              <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-[10px] text-white">
-                GP
-              </div>
-              <span className="text-[9px] font-bold text-blue-700">GP Active</span>
+      {/* কুইক অ্যাকশন মেনু */}
+      <div className="px-4 mb-6">
+        <div className="flex justify-between items-center mb-3">
+          <span className="text-xs font-black uppercase tracking-wider text-slate-700">Quick Actions</span>
+          <span className="text-[11px] font-bold text-indigo-600 uppercase">Services</span>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          {/* Flexiload */}
+          <button
+            onClick={() => onNavigate('flexiload')}
+            className="bg-white border border-slate-200/80 rounded-2xl p-3.5 flex flex-col items-center justify-center text-center shadow-sm hover:shadow-md active:scale-95 transition-all group"
+          >
+            <div className="w-11 h-11 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mb-2 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+              <Send className="w-5 h-5" />
             </div>
-            <div className="p-2 rounded-xl border border-red-100 bg-red-50/40 flex flex-col justify-center items-center gap-1">
-              <div className="w-7 h-7 bg-red-600 rounded-lg flex items-center justify-center font-bold text-[10px] text-white">
-                RB
-              </div>
-              <span className="text-[9px] font-bold text-red-700">Robi Active</span>
+            <span className="text-xs font-bold text-slate-900 leading-tight">Flexiload</span>
+            <span className="text-[10px] text-slate-400 mt-0.5">Mobile Top-Up</span>
+          </button>
+
+          {/* Drive Pack */}
+          <button
+            onClick={() => onNavigate('drive')}
+            className="bg-white border border-slate-200/80 rounded-2xl p-3.5 flex flex-col items-center justify-center text-center shadow-sm hover:shadow-md active:scale-95 transition-all relative group"
+          >
+            <span className="absolute top-2 right-2 bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase">Hot</span>
+            <div className="w-11 h-11 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 mb-2 group-hover:bg-rose-600 group-hover:text-white transition-colors">
+              <Flame className="w-5 h-5" />
             </div>
-            <div className="p-2 rounded-xl border border-orange-100 bg-orange-50/40 flex flex-col justify-center items-center gap-1">
-              <div className="w-7 h-7 bg-orange-500 rounded-lg flex items-center justify-center font-bold text-[10px] text-white">
-                BL
-              </div>
-              <span className="text-[9px] font-bold text-orange-700">BL Active</span>
+            <span className="text-xs font-bold text-slate-900 leading-tight">Drive Pack</span>
+            <span className="text-[10px] text-slate-400 mt-0.5">Data & Minutes</span>
+          </button>
+
+          {/* Regular Pack */}
+          <button
+            onClick={() => onNavigate('drive')}
+            className="bg-white border border-slate-200/80 rounded-2xl p-3.5 flex flex-col items-center justify-center text-center shadow-sm hover:shadow-md active:scale-95 transition-all group"
+          >
+            <div className="w-11 h-11 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 mb-2 group-hover:bg-amber-600 group-hover:text-white transition-colors">
+              <Package className="w-5 h-5" />
             </div>
-            <div className="p-2 rounded-xl border border-emerald-100 bg-emerald-50/40 flex flex-col justify-center items-center gap-1">
-              <div className="w-7 h-7 bg-emerald-600 rounded-lg flex items-center justify-center font-bold text-[10px] text-white">
-                TT
-              </div>
-              <span className="text-[9px] font-bold text-emerald-700">Teletalk</span>
+            <span className="text-xs font-bold text-slate-900 leading-tight">Regular Pack</span>
+            <span className="text-[10px] text-slate-400 mt-0.5">Bundles</span>
+          </button>
+
+          {/* Add Balance */}
+          <button
+            onClick={() => onNavigate('add_balance')}
+            className="bg-white border border-slate-200/80 rounded-2xl p-3.5 flex flex-col items-center justify-center text-center shadow-sm hover:shadow-md active:scale-95 transition-all group"
+          >
+            <div className="w-11 h-11 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 mb-2 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+              <Wallet className="w-5 h-5" />
             </div>
-          </div>
-        </section>
+            <span className="text-xs font-bold text-slate-900 leading-tight">Add Balance</span>
+            <span className="text-[10px] text-slate-400 mt-0.5">bKash/Nagad</span>
+          </button>
 
-        {/* Recent Transactions Table / Geometric Balance Card */}
-        <section className="bg-white rounded-2xl shadow-xs border border-slate-100 flex flex-col">
-          <div className="p-3.5 border-b border-slate-100 flex justify-between items-center">
-            <h2 className="text-xs font-bold text-slate-800 uppercase tracking-widest">
-              Recent Transactions
-            </h2>
-            <button
-              onClick={() => onNavigate('history')}
-              className="text-indigo-600 text-[10px] font-bold uppercase tracking-wider hover:underline flex items-center gap-0.5"
-            >
-              View All <ChevronRight className="w-3 h-3" />
-            </button>
-          </div>
+          {/* Transfer */}
+          <button
+            onClick={onOpenTransfer}
+            className="bg-white border border-slate-200/80 rounded-2xl p-3.5 flex flex-col items-center justify-center text-center shadow-sm hover:shadow-md active:scale-95 transition-all group"
+          >
+            <div className="w-11 h-11 rounded-2xl bg-cyan-50 border border-cyan-100 flex items-center justify-center text-cyan-600 mb-2 group-hover:bg-cyan-600 group-hover:text-white transition-colors">
+              <ArrowLeftRight className="w-5 h-5" />
+            </div>
+            <span className="text-xs font-bold text-slate-900 leading-tight">Transfer</span>
+            <span className="text-[10px] text-slate-400 mt-0.5">Main ⇄ Drive</span>
+          </button>
 
-          <div className="divide-y divide-slate-50">
-            {transactions.slice(0, 4).map((txn) => {
-              const isSuccess = txn.status === 'success';
-              const isPending = txn.status === 'pending';
+          {/* History */}
+          <button
+            onClick={() => onNavigate('history')}
+            className="bg-white border border-slate-200/80 rounded-2xl p-3.5 flex flex-col items-center justify-center text-center shadow-sm hover:shadow-md active:scale-95 transition-all group"
+          >
+            <div className="w-11 h-11 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 mb-2 group-hover:bg-slate-800 group-hover:text-white transition-colors">
+              <History className="w-5 h-5" />
+            </div>
+            <span className="text-xs font-bold text-slate-900 leading-tight">History</span>
+            <span className="text-[10px] text-slate-400 mt-0.5">All Reports</span>
+          </button>
+        </div>
+      </div>
 
-              return (
-                <div
-                  key={txn.id}
-                  onClick={() => onNavigate('history')}
-                  className="p-3 flex items-center justify-between hover:bg-slate-50/80 transition-colors cursor-pointer"
-                >
-                  <div>
-                    <p className="text-xs font-bold text-slate-800 leading-tight">
-                      {txn.recipientOrSenderNumber}
-                    </p>
-                    <p className="text-[10px] text-slate-400 font-medium tracking-tight">
-                      {txn.title}
-                    </p>
-                  </div>
+      {/* নতুন কমিউনিকেশন ও সাপোর্ট সেকশন (Facebook, WhatsApp, Live Chat, Settings) */}
+      <div className="px-4">
+        <div className="mb-3">
+          <span className="text-xs font-black uppercase tracking-wider text-slate-700">Support & Connect</span>
+        </div>
 
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <span
-                        className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${
-                          txn.type === 'recharge'
-                            ? 'bg-blue-50 text-blue-600'
-                            : txn.type === 'drive_pack'
-                            ? 'bg-orange-50 text-orange-600'
-                            : 'bg-purple-50 text-purple-600'
-                        }`}
-                      >
-                        {txn.type.replace('_', ' ')}
-                      </span>
-                      <p className="text-xs font-black text-slate-900 mt-0.5">
-                        ৳{txn.amount.toLocaleString()}
-                      </p>
-                    </div>
+        <div className="grid grid-cols-2 gap-3">
+          {/* Facebook */}
+          <button
+            onClick={() => openExternal('https://facebook.com')}
+            className="bg-white border border-slate-200 rounded-2xl p-3.5 flex items-center gap-3 shadow-sm hover:shadow-md active:scale-95 transition-all text-left"
+          >
+            <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+              <Facebook className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-900">Facebook</p>
+              <p className="text-[10px] text-slate-400 font-medium">Join Community</p>
+            </div>
+          </button>
 
-                    <span
-                      className={`text-[10px] font-bold flex items-center gap-1 ${
-                        isSuccess
-                          ? 'text-emerald-600'
-                          : isPending
-                          ? 'text-amber-500'
-                          : 'text-rose-500'
-                      }`}
-                    >
-                      {isSuccess ? '● Success' : isPending ? '● Pending' : '● Failed'}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
+          {/* WhatsApp */}
+          <button
+            onClick={() => openExternal('https://wa.me/8801XXXXXXXXX')}
+            className="bg-white border border-slate-200 rounded-2xl p-3.5 flex items-center gap-3 shadow-sm hover:shadow-md active:scale-95 transition-all text-left"
+          >
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+              <MessageCircle className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-900">WhatsApp</p>
+              <p className="text-[10px] text-slate-400 font-medium">Direct Support</p>
+            </div>
+          </button>
+
+          {/* Live Chat */}
+          <button
+            onClick={() => openExternal('https://tawk.to')}
+            className="bg-white border border-slate-200 rounded-2xl p-3.5 flex items-center gap-3 shadow-sm hover:shadow-md active:scale-95 transition-all text-left"
+          >
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+              <Headphones className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-900">Live Chat</p>
+              <p className="text-[10px] text-slate-400 font-medium">Instant Help</p>
+            </div>
+          </button>
+
+          {/* Settings */}
+          <button
+            onClick={() => onOpenNotifications()}
+            className="bg-white border border-slate-200 rounded-2xl p-3.5 flex items-center gap-3 shadow-sm hover:shadow-md active:scale-95 transition-all text-left"
+          >
+            <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 shrink-0">
+              <Settings className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-900">Settings</p>
+              <p className="text-[10px] text-slate-400 font-medium">App Preference</p>
+            </div>
+          </button>
+        </div>
       </div>
     </div>
   );
