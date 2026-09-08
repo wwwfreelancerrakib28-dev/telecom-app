@@ -14,6 +14,7 @@ import { NotificationsModal } from './components/modals/NotificationsModal';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<ScreenId>('home');
+  const [historyStack, setHistoryStack] = useState<ScreenId[]>(['home']);
   const [user, setUser] = useState<UserProfile>(INITIAL_USER);
   const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
@@ -21,29 +22,40 @@ export default function App() {
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // নতুন স্ক্রিনে যাওয়ার হ্যান্ডলার
+  const navigateTo = (screen: ScreenId) => {
+    if (screen === currentScreen) return;
+    setHistoryStack((prev) => [...prev, screen]);
+    setCurrentScreen(screen);
+  };
+
+  // একটি পেজ পেছনে যাওয়ার হ্যান্ডলার
+  const goBack = () => {
+    if (historyStack.length > 1) {
+      const newStack = [...historyStack];
+      newStack.pop();
+      const prevScreen = newStack[newStack.length - 1];
+      setHistoryStack(newStack);
+      setCurrentScreen(prevScreen);
+    } else {
+      setShowExitConfirm(true);
+    }
+  };
+
   // অ্যান্ড্রয়েড ব্যাক বাটন হ্যান্ডলার
   useEffect(() => {
     let backHandler: any;
 
     const setupBackButton = async () => {
       backHandler = await CapApp.addListener('backButton', () => {
-        // ১. যদি এক্সিট কনফার্মেশন পপ-আপ খোলা থাকে, ব্যাক চাপলে পপ-আপটি বন্ধ হবে
         if (showExitConfirm) {
           setShowExitConfirm(false);
-        }
-        // ২. যদি ট্র্যান্সফার বা নোটিফিকেশন মডাল খোলা থাকে, তা বন্ধ হবে
-        else if (isTransferModalOpen) {
+        } else if (isTransferModalOpen) {
           setIsTransferModalOpen(false);
         } else if (isNotificationsOpen) {
           setIsNotificationsOpen(false);
-        }
-        // ৩. অন্য কোনো স্ক্রিনে থাকলে হোম স্ক্রিনে ব্যাক আসবে
-        else if (currentScreen !== 'home' && currentScreen !== 'auth') {
-          setCurrentScreen('home');
-        }
-        // ৪. মূল হোম স্ক্রিনে ব্যাক চাপলে এক্সিট কনফার্মেশন পপ-আপ দেখাবে
-        else if (currentScreen === 'home') {
-          setShowExitConfirm(true);
+        } else {
+          goBack();
         }
       });
     };
@@ -55,7 +67,7 @@ export default function App() {
         backHandler.remove();
       }
     };
-  }, [showExitConfirm, isTransferModalOpen, isNotificationsOpen, currentScreen]);
+  }, [showExitConfirm, isTransferModalOpen, isNotificationsOpen, historyStack, currentScreen]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -91,7 +103,7 @@ export default function App() {
     };
 
     setTransactions((prev) => [newTxn, ...prev]);
-    setCurrentScreen('history');
+    navigateTo('history');
     showToast(`৳${data.amount} Flexiload Recharge to ${data.recipient} Successful!`);
   };
 
@@ -121,7 +133,7 @@ export default function App() {
     };
 
     setTransactions((prev) => [newTxn, ...prev]);
-    setCurrentScreen('history');
+    navigateTo('history');
     showToast(`Drive pack order submitted! Status: PENDING.`);
   };
 
@@ -156,7 +168,7 @@ export default function App() {
     };
 
     setTransactions((prev) => [newTxn, ...prev]);
-    setCurrentScreen('history');
+    navigateTo('history');
     showToast(`Add Balance request of ৳${data.amount} submitted (TrxID: ${data.trxId}).`);
   };
 
@@ -209,6 +221,7 @@ export default function App() {
           <AuthScreenView
             user={user}
             onLoginSuccess={() => {
+              setHistoryStack(['home']);
               setCurrentScreen('home');
               showToast('Authenticated successfully with Biometric PIN!');
             }}
@@ -219,10 +232,11 @@ export default function App() {
           <HomeDashboardView
             user={user}
             transactions={transactions}
-            onNavigate={(screen) => setCurrentScreen(screen)}
+            onNavigate={(screen) => navigateTo(screen)}
             onOpenNotifications={() => setIsNotificationsOpen(true)}
             onOpenTransfer={() => setIsTransferModalOpen(true)}
             onLogout={() => {
+              setHistoryStack(['auth']);
               setCurrentScreen('auth');
               showToast('Logged out of Telecom account.');
             }}
@@ -232,7 +246,7 @@ export default function App() {
         {currentScreen === 'flexiload' && (
           <FlexiloadScreenView
             user={user}
-            onBack={() => setCurrentScreen('home')}
+            onBack={goBack}
             onRechargeSuccess={handleRechargeSuccess}
           />
         )}
@@ -240,7 +254,7 @@ export default function App() {
         {currentScreen === 'drive' && (
           <DrivePackScreenView
             user={user}
-            onBack={() => setCurrentScreen('home')}
+            onBack={goBack}
             onBuySuccess={handleBuyDriveSuccess}
           />
         )}
@@ -248,7 +262,7 @@ export default function App() {
         {currentScreen === 'add_balance' && (
           <AddBalanceScreenView
             user={user}
-            onBack={() => setCurrentScreen('home')}
+            onBack={goBack}
             onAddBalanceSuccess={handleAddBalanceSuccess}
           />
         )}
@@ -256,7 +270,7 @@ export default function App() {
         {currentScreen === 'history' && (
           <HistoryScreenView
             transactions={transactions}
-            onBack={() => setCurrentScreen('home')}
+            onBack={goBack}
           />
         )}
       </main>
