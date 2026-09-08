@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { App as CapApp } from '@capacitor/app';
 import { CheckCircle2, AlertTriangle, WifiOff, RefreshCw } from 'lucide-react';
 import { UserProfile, Transaction, ScreenId, OperatorId, ConnectionType, DrivePackage } from './types';
@@ -13,7 +13,6 @@ import { TransferModal } from './components/modals/TransferModal';
 import { NotificationsModal } from './components/modals/NotificationsModal';
 
 export default function App() {
-  // আগের সেভ করা ইউজার আছে কিনা চেক করা (না থাকলে সরাসরি auth/login স্ক্রিন)
   const [user, setUser] = useState<UserProfile>(() => {
     const saved = localStorage.getItem('telecom_user');
     return saved ? JSON.parse(saved) : INITIAL_USER;
@@ -35,11 +34,22 @@ export default function App() {
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // রেফারেন্স দিয়ে ব্যাক বাটনের স্টেপ ট্র্যাকিং নিশ্চিত করা (যাতে এক লাফে হোমে না যায়)
+  const historyRef = useRef<ScreenId[]>(historyStack);
+  const modalsRef = useRef({ isTransferModalOpen, isNotificationsOpen, showExitConfirm });
+
+  useEffect(() => {
+    historyRef.current = historyStack;
+  }, [historyStack]);
+
+  useEffect(() => {
+    modalsRef.current = { isTransferModalOpen, isNotificationsOpen, showExitConfirm };
+  }, [isTransferModalOpen, isNotificationsOpen, showExitConfirm]);
+
   // ইন্টারনেট যাচাই স্টেট
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [isCheckingNet, setIsCheckingNet] = useState<boolean>(false);
 
-  // রিয়েল ইন্টারনেট চেক ফাংশন
   const checkRealInternet = async () => {
     if (!navigator.onLine) {
       setIsOnline(false);
@@ -47,8 +57,7 @@ export default function App() {
     }
     try {
       setIsCheckingNet(true);
-      // ছোট একটি হেড রিকোয়েস্ট দিয়ে আসল ইন্টারনেট চেক
-      const res = await fetch('https://www.google.com/favicon.ico', {
+      await fetch('https://www.google.com/favicon.ico', {
         method: 'HEAD',
         mode: 'no-cors',
         cache: 'no-store'
@@ -63,7 +72,7 @@ export default function App() {
 
   useEffect(() => {
     checkRealInternet();
-    const interval = setInterval(checkRealInternet, 5000); // প্রতি ৫ সেকেন্ড পর পর কানেকশন চেক করবে
+    const interval = setInterval(checkRealInternet, 6000);
 
     const handleOnline = () => checkRealInternet();
     const handleOffline = () => setIsOnline(false);
@@ -78,43 +87,44 @@ export default function App() {
     };
   }, []);
 
-  // নেভিগেশন
+  // ধাপে ধাপে নেভিগেশন
   const navigateTo = (screen: ScreenId) => {
     if (screen === currentScreen) return;
     setHistoryStack((prev) => [...prev, screen]);
     setCurrentScreen(screen);
   };
 
+  // একটি করে ব্যাক যাওয়ার নিখুঁত লজিক
   const goBack = () => {
-    if (historyStack.length > 1) {
-      const newStack = [...historyStack];
-      newStack.pop();
-      const prevScreen = newStack[newStack.length - 1];
-      setHistoryStack(newStack);
+    const currentStack = historyRef.current;
+    if (currentStack.length > 1) {
+      const nextStack = [...currentStack];
+      nextStack.pop(); // বর্তমান পেজ বাদ
+      const prevScreen = nextStack[nextStack.length - 1]; // ঠিক আগের পেজ
+      setHistoryStack(nextStack);
       setCurrentScreen(prevScreen);
     } else {
       setShowExitConfirm(true);
     }
   };
 
-  // অ্যান্ড্রয়েড ব্যাক বাটন
+  // মোবাইল ব্যাক বাটন ইভেন্ট
   useEffect(() => {
     let backHandler: any;
 
     const setupBackButton = async () => {
       backHandler = await CapApp.addListener('backButton', () => {
-        if (!isOnline) {
-          CapApp.exitApp();
-          return;
-        }
+        const { showExitConfirm: isExitOpen, isTransferModalOpen: isTransOpen, isNotificationsOpen: isNotifOpen } = modalsRef.current;
 
-        if (showExitConfirm) {
+        // ১. কোনো পপ-আপ খোলা থাকলে আগে তা বন্ধ হবে
+        if (isExitOpen) {
           setShowExitConfirm(false);
-        } else if (isTransferModalOpen) {
+        } else if (isTransOpen) {
           setIsTransferModalOpen(false);
-        } else if (isNotificationsOpen) {
+        } else if (isNotifOpen) {
           setIsNotificationsOpen(false);
         } else {
+          // ২. অন্যথায় কেবল ১ স্টেপ পেছনের স্ক্রিনে যাবে
           goBack();
         }
       });
@@ -127,7 +137,7 @@ export default function App() {
         backHandler.remove();
       }
     };
-  }, [showExitConfirm, isTransferModalOpen, isNotificationsOpen, historyStack, currentScreen, isOnline]);
+  }, []);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -265,7 +275,7 @@ export default function App() {
     showToast(`Transferred ৳${amount} from ${from} to ${to} balance.`);
   };
 
-  // ইন্টারনেট না থাকলে স্ক্রিন ব্লক
+  // নো ইন্টারনেট স্ক্রিন
   if (!isOnline) {
     return (
       <div className="fixed inset-0 z-50 bg-slate-950 text-white flex flex-col items-center justify-center p-6 text-center select-none">
@@ -290,7 +300,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen w-full bg-slate-50 flex flex-col font-sans select-none text-slate-900 overflow-x-hidden">
-      {/* Toast Notification Alert */}
       {toastMessage && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 text-white border border-slate-700/80 px-4 py-2.5 rounded-2xl shadow-2xl text-xs font-semibold flex items-center gap-2 backdrop-blur-md">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -298,7 +307,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Main Full-Screen App Views */}
+      {/* Main Views */}
       <main className="flex-1 w-full flex flex-col">
         {currentScreen === 'auth' && (
           <AuthScreenView
