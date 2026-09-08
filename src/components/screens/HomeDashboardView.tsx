@@ -20,7 +20,13 @@ import {
   Heart, 
   Sparkles, 
   Check, 
-  X 
+  X,
+  Lock,
+  ShieldAlert,
+  AlertTriangle,
+  Users,
+  Activity,
+  Layers
 } from 'lucide-react';
 import { UserProfile, ScreenId, Transaction } from '../../types';
 
@@ -43,13 +49,22 @@ export const HomeDashboardView: React.FC<HomeDashboardProps> = ({
   onLogout,
   onUpdateUser,
 }) => {
-  // সেটিংস / প্রোফাইল মডাল স্টেট
+  // সেটিংস মডাল স্টেট
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [name, setName] = useState(user.name || '');
   const [pin, setPin] = useState(user.pin || '');
   const [avatar, setAvatar] = useState(user.avatar || '');
   const [isSaved, setIsSaved] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // সিক্রেট অ্যাডমিন প্যানেল স্টেট
+  const [clickCount, setClickCount] = useState(0);
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [adminPhone, setAdminPhone] = useState('');
+  const [adminPass, setAdminPass] = useState('');
+  const [adminError, setAdminError] = useState('');
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+  const clickTimeoutRef = useRef<any>(null);
 
   const openExternal = (url: string) => {
     window.open(url, '_blank');
@@ -67,7 +82,7 @@ export const HomeDashboardView: React.FC<HomeDashboardProps> = ({
     }
   };
 
-  // সেটিংস তথ্য সেভ করা
+  // সেটিংস সেভ করা
   const handleSettingsSave = (e: React.FormEvent) => {
     e.preventDefault();
     const updatedUser: UserProfile = {
@@ -85,6 +100,41 @@ export const HomeDashboardView: React.FC<HomeDashboardProps> = ({
       setIsSaved(false);
       setIsSettingsModalOpen(false);
     }, 900);
+  };
+
+  // সিক্রেট ১০ বার ক্লিকের হ্যান্ডলার
+  const handleDoNotClick = () => {
+    const newCount = clickCount + 1;
+    setClickCount(newCount);
+
+    if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
+
+    // ৩ সেকেন্ড পর পর ক্লিক কাউন্ট রিসেট হয়ে যাবে
+    clickTimeoutRef.current = setTimeout(() => {
+      setClickCount(0);
+    }, 3000);
+
+    // ১০ বার পূর্ণ হলে অ্যাডমিন অথেন্টিকেশন পপ-আপ চালু হবে
+    if (newCount >= 10) {
+      setClickCount(0);
+      setIsSettingsModalOpen(false);
+      setShowAdminLogin(true);
+      setAdminError('');
+    }
+  };
+
+  // অ্যাডমিন ভেরিফিকেশন হ্যান্ডলার
+  const handleAdminAuth = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (adminPhone.trim() === '01728116153' && adminPass.trim() === '2811') {
+      setShowAdminLogin(false);
+      setIsAdminLoggedIn(true);
+      setAdminError('');
+      setAdminPhone('');
+      setAdminPass('');
+    } else {
+      setAdminError('অ্যাক্সেস ডিনায়েড! ভুল মোবাইল নম্বর অথবা পাসওয়ার্ড।');
+    }
   };
 
   return (
@@ -291,7 +341,7 @@ export const HomeDashboardView: React.FC<HomeDashboardProps> = ({
       {/* Setting পপ-আপ মডাল */}
       {isSettingsModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/70 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-white rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl relative overflow-hidden border border-slate-100">
+          <div className="w-full max-w-md bg-white rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl relative overflow-hidden border border-slate-100 max-h-[90vh] overflow-y-auto">
             
             {/* ব্যাকগ্রাউন্ড রোমান্টিক গ্লো */}
             <div className="absolute top-0 right-0 w-36 h-36 bg-rose-500/10 rounded-full blur-2xl pointer-events-none" />
@@ -347,7 +397,7 @@ export const HomeDashboardView: React.FC<HomeDashboardProps> = ({
               </p>
             </div>
 
-            {/* সেটিংস ফর্ম ফিল্ডস */}
+            {/* ফর্ম ফিল্ডস */}
             <form onSubmit={handleSettingsSave} className="space-y-3 relative z-10">
               <div>
                 <label className="text-[11px] font-bold text-slate-500 block mb-1">আপনার নাম</label>
@@ -409,6 +459,144 @@ export const HomeDashboardView: React.FC<HomeDashboardProps> = ({
                 )}
               </button>
             </form>
+
+            {/* সবার নিচে সিক্রেট "Do Not Click" বাটন */}
+            <div className="mt-6 pt-4 border-t border-slate-100 text-center relative z-10">
+              <button
+                type="button"
+                onClick={handleDoNotClick}
+                className="text-[11px] font-semibold text-rose-500/80 hover:text-rose-600 tracking-wider uppercase px-4 py-2 rounded-lg hover:bg-rose-50/50 active:scale-90 transition-all flex items-center justify-center gap-1.5 mx-auto"
+              >
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span>Do Not Click</span>
+              </button>
+              <p className="text-[9px] text-slate-400 mt-1">SIM OFFER SHOP • v2.4.0 (Protected)</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* অ্যাডমিন অথেন্টিকেশন পপ-আপ (১০ বার ক্লিক করার পর আসবে) */}
+      {showAdminLogin && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-xs bg-slate-900 border border-slate-800 text-white rounded-3xl p-6 shadow-2xl relative">
+            <button
+              onClick={() => setShowAdminLogin(false)}
+              className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-500 mx-auto mb-3 shadow-lg shadow-red-500/10">
+              <Lock className="w-6 h-6" />
+            </div>
+
+            <h3 className="text-center font-black text-base text-white">System Admin Auth</h3>
+            <p className="text-center text-[10px] text-slate-400 mb-4">নিরাপত্তা যাচাইকরণের জন্য ক্রেডেনশিয়াল দিন</p>
+
+            {adminError && (
+              <div className="p-2.5 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-[11px] text-center mb-3 font-semibold">
+                {adminError}
+              </div>
+            )}
+
+            <form onSubmit={handleAdminAuth} className="space-y-3">
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 block mb-1">অ্যাডমিন নম্বর</label>
+                <input
+                  type="tel"
+                  placeholder="017XXXXXXXX"
+                  value={adminPhone}
+                  onChange={(e) => setAdminPhone(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-red-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 block mb-1">অ্যাডমিন পাসওয়ার্ড</label>
+                <input
+                  type="password"
+                  placeholder="••••"
+                  value={adminPass}
+                  onChange={(e) => setAdminPass(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white placeholder-slate-500 tracking-widest focus:outline-none focus:border-red-500"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-3 bg-red-600 hover:bg-red-500 active:scale-95 text-white font-bold text-xs rounded-xl shadow-lg shadow-red-600/30 transition-all mt-2"
+              >
+                প্যানেল আনলক করুন
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* সিক্রেট অ্যাডমিন কন্ট্রোল প্যানেল ভিউ */}
+      {isAdminLoggedIn && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-4 animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-sm bg-slate-900 border border-indigo-500/40 text-white rounded-3xl p-6 shadow-2xl relative">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+                  <ShieldAlert className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-white">Super Admin Console</h3>
+                  <p className="text-[10px] text-emerald-400 font-semibold">Master Access Granted</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsAdminLoggedIn(false)}
+                className="p-1.5 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 mt-4">
+              <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/60 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Users className="w-5 h-5 text-indigo-400" />
+                  <div>
+                    <p className="text-xs font-bold text-white">ইউজার ম্যানেজমেন্ট</p>
+                    <p className="text-[10px] text-slate-400">সকল গ্রাহকের ব্যালেন্স ও তালিকা</p>
+                  </div>
+                </div>
+                <span className="text-[11px] font-bold text-indigo-400 bg-indigo-500/10 px-2 py-1 rounded-lg">Active</span>
+              </div>
+
+              <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/60 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Layers className="w-5 h-5 text-amber-400" />
+                  <div>
+                    <p className="text-xs font-bold text-white">ড্রাইভ প্যাক কন্ট্রোল</p>
+                    <p className="text-[10px] text-slate-400">অফার মূল্য ও ক্যাশব্যাক রেট পরিবর্তন</p>
+                  </div>
+                </div>
+                <span className="text-[11px] font-bold text-amber-400 bg-amber-500/10 px-2 py-1 rounded-lg">Auto</span>
+              </div>
+
+              <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/60 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Activity className="w-5 h-5 text-emerald-400" />
+                  <div>
+                    <p className="text-xs font-bold text-white">টপ-আপ গেটওয়ে ডেবিয়ন</p>
+                    <p className="text-[10px] text-slate-400">অপারেটর সিম ও ব্যালেন্স লোড</p>
+                  </div>
+                </div>
+                <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-lg">Online</span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsAdminLoggedIn(false)}
+              className="w-full mt-6 py-3 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold text-xs rounded-xl transition-all shadow-lg shadow-indigo-600/30"
+            >
+              কনসোল বন্ধ করুন
+            </button>
           </div>
         </div>
       )}
