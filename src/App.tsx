@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
+import { db } from './firebase';
+import { ref, set, push, onValue, update } from 'firebase/database';
 import { 
   Send, 
   Flame, 
@@ -33,6 +35,7 @@ export default function UserApp() {
   const [activeSection, setActiveSection] = useState<'menu' | 'flexiload' | 'drive' | 'scratch' | 'add_balance' | 'history' | 'chats' | 'notifications' | 'profile'>('menu');
   
   const [userProfile, setUserProfile] = useState({
+    id: '1',
     name: 'Md. Tanvir Hasan',
     phone: '01712345678',
     pin: '1234',
@@ -48,41 +51,127 @@ export default function UserApp() {
   const [showPhone, setShowPhone] = useState(false);
   const [showPin, setShowPin] = useState(false);
 
-  const [runningNotice] = useState('🎉 স্বাগতম SIM OFFER SHOP এ! অর্ডার করার সাথে সাথেই প্রসেসিং শুরু হয়ে যাবে।');
+  const [runningNotice, setRunningNotice] = useState('🎉 স্বাগতম SIM OFFER SHOP এ! অর্ডার করার সাথেই প্রসেসিং শুরু হয়ে যাবে।');
 
-  const [notifications, setNotifications] = useState([
-    { id: '1', title: 'স্বাগতম!', msg: 'আপনার অ্যাকাউন্ট সফলভাবে ভেরিফাই হয়েছে।', time: '10:30 AM', read: false }
-  ]);
+  const [notifications, setNotifications] = useState<any[]>([]);
 
-  const [paymentNumbers] = useState({ bkash: '01728116153', nagad: '01728116153', rocket: '01728116153' });
-  const [addMoneyEnabled] = useState(true);
+  const [paymentNumbers, setPaymentNumbers] = useState({ bkash: '01728116153', nagad: '01728116153', rocket: '01728116153' });
+  const [addMoneyEnabled, setAddMoneyEnabled] = useState(true);
   const [selectedMethod, setSelectedMethod] = useState('bKash');
   const [balanceType, setBalanceType] = useState('main');
   const [addAmount, setAddAmount] = useState('');
   const [trxId, setTrxId] = useState('');
 
-  const [userAddMoneyLogs, setUserAddMoneyLogs] = useState([
-    { id: 'AM-101', method: 'bKash', amount: 1000, type: 'main', trxId: 'BK990011', time: 'Today, 10:30 AM', status: 'Approved' }
-  ]);
-  const [userFlexiLogs, setUserFlexiLogs] = useState([
-    { id: 'FLX-201', operator: 'Grameenphone', amount: 200, number: '01711223344', simType: 'Prepaid', time: 'Today, 11:00 AM', status: 'Completed' }
-  ]);
-  const [userDriveLogs, setUserDriveLogs] = useState([
-    { id: 'DRV-301', operator: 'Grameenphone', title: '30 GB + 700 Min', price: 580, number: '01711223344', time: 'Yesterday', status: 'Completed' }
-  ]);
+  const [userAddMoneyLogs, setUserAddMoneyLogs] = useState<any[]>([]);
+  const [userFlexiLogs, setUserFlexiLogs] = useState<any[]>([]);
+  const [userDriveLogs, setUserDriveLogs] = useState<any[]>([]);
   const [userScratchLogs, setUserScratchLogs] = useState<any[]>([]);
 
   // স্ক্র্যাচ কার্ড স্টেট
-  const [scratchCards] = useState([
-    { id: 'SC-1', type: 'Minute', title: '৫০ মিনিট প্যাক', price: 30, details: '৫০ মিনিট (মেয়াদ ৩০ দিন)' },
-    { id: 'SC-2', type: 'Internet', title: '১ জিবি ইন্টারনেট প্যাক', price: 25, details: '১ জিবি এমবি (মেয়াদ ৭ দিন)' },
-    { id: 'SC-3', type: 'Minute', title: '১০০ মিনিট প্যাক', price: 60, details: '১০০ মিনিট (মেয়াদ ৩০ দিন)' }
-  ]);
+  const [scratchCards, setScratchCards] = useState<any[]>([]);
   const [buyingCard, setBuyingCard] = useState<any | null>(null);
   const [targetCardNumber, setTargetCardNumber] = useState('');
   
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [popupAlert, setPopupAlert] = useState<string | null>(null);
+
+  const [selectedDriveOp, setSelectedDriveOp] = useState('Grameenphone');
+  const [driveOffers, setDriveOffers] = useState<any[]>([]);
+
+  const [orderingOffer, setOrderingOffer] = useState<any | null>(null);
+  const [targetDriveNumber, setTargetDriveNumber] = useState('');
+  const [hasSimLoan, setHasSimLoan] = useState<boolean | null>(null);
+
+  const [flexiPhone, setFlexiPhone] = useState('');
+  const [flexiOperator, setFlexiOperator] = useState('Grameenphone');
+  const [simType, setSimType] = useState('Prepaid');
+  const [flexiAmount, setFlexiAmount] = useState('');
+
+  const [historyTab, setHistoryTab] = useState<'add_money' | 'flexiload' | 'drive'>('add_money');
+
+  const [chatMessages, setChatMessages] = useState<any[]>([
+    { id: '1', sender: 'admin', text: 'আসসালামু আলাইকুম! বলুন আপনাকে কীভাবে সাহায্য করতে পারি?' }
+  ]);
+  const [chatInput, setChatInput] = useState('');
+
+  // Firebase Realtime Database Sync
+  useEffect(() => {
+    // Notice Sync
+    onValue(ref(db, 'settings/notice'), (snapshot) => {
+      const val = snapshot.val();
+      if (val) setRunningNotice(val);
+    });
+
+    // Add Money Settings Sync
+    onValue(ref(db, 'settings/addMoney'), (snapshot) => {
+      const val = snapshot.val();
+      if (val) {
+        if (val.enabled !== undefined) setAddMoneyEnabled(val.enabled);
+        if (val.numbers) setPaymentNumbers(val.numbers);
+      }
+    });
+
+    // User Profile Sync (Assuming current user id is '1')
+    onValue(ref(db, 'users/1'), (snapshot) => {
+      const val = snapshot.val();
+      if (val) {
+        setUserProfile(prev => ({
+          ...prev,
+          ...val,
+          mainBalance: val.mainBalance !== undefined ? val.mainBalance : prev.mainBalance,
+          driveBalance: val.driveBalance !== undefined ? val.driveBalance : prev.driveBalance
+        }));
+      }
+    });
+
+    // Offers Sync
+    onValue(ref(db, 'offers'), (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const list = Object.keys(data).map(key => ({ id: key, ...data[key] }));
+        setDriveOffers(list);
+      } else {
+        setDriveOffers([]);
+      }
+    });
+
+    // Scratch Cards Sync
+    onValue(ref(db, 'scratchCards'), (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const list = Object.keys(data).map(key => ({ id: key, ...data[key] }));
+        setScratchCards(list);
+      } else {
+        setScratchCards([]);
+      }
+    });
+
+    // User Logs Sync
+    onValue(ref(db, 'addMoneyLogs'), (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const list = Object.keys(data).map(key => ({ id: key, ...data[key] }))
+          .filter(item => item.userPhone === userProfile.phone || true);
+        setUserAddMoneyLogs(list);
+      }
+    });
+
+    onValue(ref(db, 'rechargeOrders'), (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const list = Object.keys(data).map(key => ({ id: key, ...data[key] }));
+        setUserFlexiLogs(list);
+      }
+    });
+
+    onValue(ref(db, 'driveOrders'), (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const list = Object.keys(data).map(key => ({ id: key, ...data[key] }));
+        setUserDriveLogs(list);
+      }
+    });
+  }, []);
 
   const handleCopyPaymentNumber = (num: string, id: string) => {
     navigator.clipboard.writeText(num);
@@ -94,81 +183,94 @@ export default function UserApp() {
   const handleConfirmBuyCard = () => {
     if (!buyingCard) return;
     if (!targetCardNumber || targetCardNumber.length < 11) {
-      alert('দয়া করে সঠিক ১১ ডিজিটের মোবাইল নম্বর লিখুন!');
+      alert('দয়া করে সঠিক ১১ ডিজিটের মোবাইল নম্বর লিখুন!');
       return;
     }
     if (userProfile.mainBalance < buyingCard.price) {
-      alert('⚠️ আপনার মেইন ব্যালেন্সে পর্যাপ্ত টাকা নেই! দয়া করে আগে ব্যালেন্স অ্যাড করুন।');
+      alert('⚠️ আপনার মেইন ব্যালেন্সে পর্যাপ্ত টাকা নেই! দয়া করে আগে ব্যালেন্স অ্যাড করুন।');
       setBuyingCard(null);
       setTargetCardNumber('');
       return;
     }
 
-    setUserProfile(prev => ({ ...prev, mainBalance: prev.mainBalance - buyingCard.price }));
-    setUserScratchLogs(prev => [
-      { id: 'SCR-' + Date.now(), title: buyingCard.title, price: buyingCard.price, number: targetCardNumber, time: 'Just now' },
-      ...prev
-    ]);
+    const newMainBal = userProfile.mainBalance - buyingCard.price;
+    update(ref(db, `users/${userProfile.id}`), { mainBalance: newMainBal });
 
-    // নতুন সুন্দর প্রসেসিং মেসেজ পপ-আপ
-    setPopupAlert(`⏳ অপেক্ষা করুন!\nকিছুক্ষণের মধ্যেই আপনার দেওয়া অর্ডারটি সফলভাবে সম্পন্ন করা হচ্ছে।`);
+    const newOrderRef = push(ref(db, 'rechargeOrders'));
+    set(newOrderRef, {
+      userId: userProfile.id,
+      userName: userProfile.name,
+      userPhone: userProfile.phone,
+      userMainBal: newMainBal,
+      userDriveBal: userProfile.driveBalance,
+      operator: buyingCard.type,
+      amount: buyingCard.price,
+      targetNumber: targetCardNumber,
+      time: new Date().toLocaleTimeString(),
+      status: 'Pending',
+      note: buyingCard.title
+    });
+
+    setPopupAlert(`⏳ অপেক্ষা করুন!\nকিছুক্ষণের মধ্যেই আপনার দেওয়া অর্ডারটি সফলভাবে সম্পন্ন করা হচ্ছে।`);
     setBuyingCard(null);
     setTargetCardNumber('');
   };
-
-  const [driveServiceEnabled] = useState(true);
-  const [operatorStatus] = useState<Record<string, boolean>>({
-    Grameenphone: true, Robi: true, Banglalink: true, Airtel: true, Teletalk: true
-  });
-
-  const [selectedDriveOp, setSelectedDriveOp] = useState('Grameenphone');
-  const [driveOffers] = useState([
-    { id: '1', operator: 'Grameenphone', title: '30 GB + 700 Min (30 Days)', price: 580, cashback: 119, note: 'ঢাকা ও চট্টগ্রাম' },
-    { id: '2', operator: 'Robi', title: '50 GB + 1000 Min (30 Days)', price: 750, cashback: 149, note: 'সকল গ্রাহক' },
-    { id: '3', operator: 'Teletalk', title: '25 GB + 500 Min (30 Days)', price: 399, cashback: 70, note: 'টেলিটক প্যাক' }
-  ]);
-
-  const [orderingOffer, setOrderingOffer] = useState<any | null>(null);
-  const [targetDriveNumber, setTargetDriveNumber] = useState('');
-  const [hasSimLoan, setHasSimLoan] = useState<boolean | null>(null);
 
   // ড্রাইভ অর্ডার প্রসেসিং কনফার্মেশন
   const handleConfirmDriveOrder = () => {
     if (!targetDriveNumber || targetDriveNumber.length < 11) return alert('সঠিক ১১ ডিজিট নম্বর লিখুন!');
     if (hasSimLoan === null) return alert('লোন আছে কি না সিলেক্ট করুন!');
-    if (hasSimLoan === true) return alert('⚠️ লোন থাকা অবস্থায় ড্রাইভ নেওয়া যাবে না!');
-    if (userProfile.driveBalance < orderingOffer.price) return alert('ড্রাইভ ব্যালেন্স পর্যাপ্ত নয়!');
+    if (hasSimLoan === true) return alert('⚠️ লোন থাকা অবস্থায় ড্রাইভ নেওয়া যাবে না!');
+    if (userProfile.driveBalance < orderingOffer.price) return alert('ড্রাইভ ব্যালেন্স পর্যাপ্ত নয়!');
 
-    setUserProfile(prev => ({ ...prev, driveBalance: prev.driveBalance - orderingOffer.price }));
-    setUserDriveLogs(prev => [
-      { id: 'DRV-' + Date.now(), operator: orderingOffer.operator, title: orderingOffer.title, price: orderingOffer.price, number: targetDriveNumber, time: 'Just now', status: 'Pending' },
-      ...prev
-    ]);
+    const newDriveBal = userProfile.driveBalance - orderingOffer.price;
+    update(ref(db, `users/${userProfile.id}`), { driveBalance: newDriveBal });
 
-    setPopupAlert(`⏳ অপেক্ষা করুন!\nকিছুক্ষণের মধ্যেই আপনার দেওয়া ড্রাইভ অর্ডারটি সফলভাবে সম্পন্ন করা হচ্ছে।`);
+    const newOrderRef = push(ref(db, 'driveOrders'));
+    set(newOrderRef, {
+      userId: userProfile.id,
+      userName: userProfile.name,
+      userPhone: userProfile.phone,
+      userMainBal: userProfile.mainBalance,
+      userDriveBal: newDriveBal,
+      operator: orderingOffer.operator,
+      packageTitle: orderingOffer.title,
+      price: orderingOffer.price,
+      targetNumber: targetDriveNumber,
+      time: new Date().toLocaleTimeString(),
+      status: 'Pending',
+      hasLoan: false,
+      note: ''
+    });
+
+    setPopupAlert(`⏳ অপেক্ষা করুন!\nকিছুক্ষণের মধ্যেই আপনার দেওয়া ড্রাইভ অর্ডারটি সফলভাবে সম্পন্ন করা হচ্ছে।`);
     setOrderingOffer(null);
     setTargetDriveNumber('');
     setHasSimLoan(null);
   };
 
   const handleAddBalanceSubmit = () => {
+    if (!addMoneyEnabled) return alert('বর্তমানে এড-মানি সার্ভিস বন্ধ রয়েছে!');
     if (!addAmount || Number(addAmount) <= 0) return alert('সঠিক টাকার পরিমাণ লিখুন!');
     if (!trxId || trxId.length < 5) return alert('সঠিক ট্রানজ্যাকশন আইডি (TrxID) লিখুন!');
 
-    setUserAddMoneyLogs(prev => [
-      { id: 'AM-' + Date.now(), method: selectedMethod, amount: Number(addAmount), type: balanceType, trxId: trxId.toUpperCase(), time: 'Just now', status: 'Pending' },
-      ...prev
-    ]);
+    const newLogRef = push(ref(db, 'addMoneyLogs'));
+    set(newLogRef, {
+      userId: userProfile.id,
+      userName: userProfile.name,
+      userPhone: userProfile.phone,
+      method: selectedMethod,
+      amount: Number(addAmount),
+      balanceType: balanceType,
+      trxId: trxId.toUpperCase(),
+      time: new Date().toLocaleTimeString(),
+      status: 'Pending'
+    });
 
-    setPopupAlert('🎉 আপনার এড-মানি রিকোয়েস্ট সফলভাবে জমা হয়েছে!');
+    setPopupAlert('🎉 আপনার এড-মানি রিকোয়েস্ট সফলভাবে জমা হয়েছে!');
     setAddAmount('');
     setTrxId('');
   };
-
-  const [flexiPhone, setFlexiPhone] = useState('');
-  const [flexiOperator, setFlexiOperator] = useState('Grameenphone');
-  const [simType, setSimType] = useState('Prepaid');
-  const [flexiAmount, setFlexiAmount] = useState('');
 
   const handlePhoneChange = (val: string) => {
     setFlexiPhone(val);
@@ -185,26 +287,33 @@ export default function UserApp() {
     if (!flexiAmount || Number(flexiAmount) <= 0) return alert('সঠিক টাকার পরিমাণ লিখুন!');
     if (userProfile.mainBalance < Number(flexiAmount)) return alert('মেইন ব্যালেন্সে পর্যাপ্ত টাকা নেই!');
 
-    setUserProfile(prev => ({ ...prev, mainBalance: prev.mainBalance - Number(flexiAmount) }));
-    setUserFlexiLogs(prev => [
-      { id: 'FLX-' + Date.now(), operator: flexiOperator, amount: Number(flexiAmount), number: flexiPhone, simType, time: 'Just now', status: 'Pending' },
-      ...prev
-    ]);
+    const newMainBal = userProfile.mainBalance - Number(flexiAmount);
+    update(ref(db, `users/${userProfile.id}`), { mainBalance: newMainBal });
 
-    setPopupAlert(`⏳ অপেক্ষা করুন!\nকয়েক সেকেন্ডের মধ্যেই আপনার ফ্লেক্সিলোড সফলভাবে সম্পন্ন হবে।`);
+    const newOrderRef = push(ref(db, 'rechargeOrders'));
+    set(newOrderRef, {
+      userId: userProfile.id,
+      userName: userProfile.name,
+      userPhone: userProfile.phone,
+      userMainBal: newMainBal,
+      userDriveBal: userProfile.driveBalance,
+      operator: flexiOperator,
+      amount: Number(flexiAmount),
+      targetNumber: flexiPhone,
+      time: new Date().toLocaleTimeString(),
+      status: 'Pending',
+      note: simType
+    });
+
+    setPopupAlert(`⏳ অপেক্ষা করুন!\nকয়েক সেকেন্ডের মধ্যেই আপনার ফ্লেক্সিলোড সফলভাবে সম্পন্ন হবে।`);
     setFlexiPhone('');
     setFlexiAmount('');
   };
 
-  const [chatMessages, setChatMessages] = useState([
-    { id: '1', sender: 'admin', text: 'আসসালামু আলাইকুম! বলুন আপনাকে কীভাবে সাহায্য করতে পারি?' }
-  ]);
-  const [chatInput, setChatInput] = useState('');
-
   const handleSendChatMessage = () => {
     if (!chatInput.trim()) return;
-    const newMsg = { id: Date.now().toString(), sender: 'user', text: chatInput.trim() };
-    setChatMessages(prev => [...prev, newMsg]);
+    const newMsg = { sender: 'user', text: chatInput.trim() };
+    setChatMessages(prev => [...prev, { id: Date.now().toString(), ...newMsg }]);
     setChatInput('');
   };
 
@@ -241,14 +350,14 @@ export default function UserApp() {
                 <button onClick={() => setIsLoggedIn(true)} className="w-full py-2.5 bg-indigo-600 text-white font-bold text-xs rounded-xl shadow-md">লগইন</button>
               </div>
               <button onClick={() => setAuthView('forgot')} className="text-[11px] text-indigo-600 font-bold hover:underline block mx-auto pt-1">
-                পিন বা পাসওয়ার্ড ভুলে গেছেন?
+                পিন বা পাসওয়ার্ড ভুলে গেছেন?
               </button>
             </>
           ) : (
             <>
-              <h2 className="text-sm font-black text-slate-900">পাসওয়ার্ড বা পিন রিকভারি</h2>
+              <h2 className="text-sm font-black text-slate-900">পাসওয়ার্ড বা পিন রিকভারি</h2>
               <p className="text-[11px] text-slate-500 leading-relaxed">
-                পিন বা পাসওয়ার্ড ভুলে গেলে নিচে আমাদের অফিসিয়াল ফেসবুক পেজ অথবা হোয়াটসঅ্যাপে যোগাযোগ করে খুব সহজেই রিসেট করে নিতে পারেন।
+                পিন বা পাসওয়ার্ড ভুলে গেলে নিচে আমাদের অফিসিয়াল ফেসবুক পেজ অথবা হোয়াটসঅ্যাপে যোগাযোগ করে খুব সহজেই রিসেট করে নিতে পারেন।
               </p>
               
               <div className="grid grid-cols-2 gap-2 pt-2">
@@ -381,7 +490,7 @@ export default function UserApp() {
                 <div className="flex justify-between items-center">
                   <div>
                     <span className="font-black text-slate-900 text-xs">{card.title}</span>
-                    <p className="text-[10px] text-slate-500 mt-0.5">{card.details}</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">{card.details || card.pin}</p>
                   </div>
                   <span className="text-xs font-mono font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-xl">৳{card.price}</span>
                 </div>
@@ -402,7 +511,7 @@ export default function UserApp() {
 
             {buyingCard && (
               <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-                <div className="bg-white rounded-3xl p-5 max-w-xs w-full space-y-3.5 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
+                <div className="bg-white rounded-3xl p-5 max-w-xs w-full space-y-3.5 shadow-2xl border border-slate-100">
                   <div className="border-b pb-2">
                     <span className="text-[9px] font-bold uppercase text-pink-600 bg-pink-50 px-2 py-0.5 rounded">স্ক্র্যাচ কার্ড</span>
                     <h4 className="text-xs font-black text-slate-900 mt-1">{buyingCard.title}</h4>
@@ -417,30 +526,13 @@ export default function UserApp() {
                       placeholder="017XXXXXXXX" 
                       value={targetCardNumber} 
                       onChange={(e) => setTargetCardNumber(e.target.value)} 
-                      className="w-full bg-slate-50 border rounded-xl p-2.5 text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-indigo-600" 
+                      className="w-full bg-slate-50 border rounded-xl p-2.5 text-xs font-mono font-bold text-slate-900" 
                     />
                   </div>
 
-                  <p className="text-[10px] text-slate-500 leading-tight">
-                    ❓ আপনি কি শিওর? <strong className="text-slate-900">৳{buyingCard.price}</strong> বিনিময়ে আপনি এই কার্ডটি নিতে চান?
-                  </p>
-
                   <div className="flex gap-2 pt-1">
-                    <button 
-                      onClick={() => setBuyingCard(null)} 
-                      className="flex-1 py-2.5 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl active:scale-95"
-                    >
-                      বাতিল
-                    </button>
-                    <button 
-                      disabled={targetCardNumber.length < 11}
-                      onClick={handleConfirmBuyCard} 
-                      className={`flex-1 py-2.5 text-white font-bold text-xs rounded-xl shadow-md active:scale-95 transition-all ${
-                        targetCardNumber.length < 11 ? 'bg-slate-300 cursor-not-allowed opacity-50' : 'bg-emerald-600 hover:bg-emerald-700'
-                      }`}
-                    >
-                      কনফার্ম করুন
-                    </button>
+                    <button onClick={() => setBuyingCard(null)} className="flex-1 py-2.5 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl">বাতিল</button>
+                    <button disabled={targetCardNumber.length < 11} onClick={handleConfirmBuyCard} className={`flex-1 py-2.5 text-white font-bold text-xs rounded-xl ${targetCardNumber.length < 11 ? 'bg-slate-300' : 'bg-emerald-600'}`}>কনফার্ম</button>
                   </div>
                 </div>
               </div>
@@ -456,26 +548,19 @@ export default function UserApp() {
               </div>
               <div>
                 <h3 className="text-sm font-black text-slate-900">{userProfile.name}</h3>
-                
                 <div className="flex items-center justify-center gap-1.5 mt-1">
                   <span className="text-xs text-slate-500 font-mono">📱 {showPhone ? userProfile.phone : '01712-******'}</span>
                   <button onClick={() => setShowPhone(!showPhone)} className="text-indigo-600 p-1">
                     {showPhone ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                   </button>
                 </div>
-
                 <div className="flex items-center justify-center gap-1.5 mt-0.5">
                   <span className="text-xs text-slate-500 font-mono">🔒 পিন: {showPin ? userProfile.pin : '••••'}</span>
                   <button onClick={() => setShowPin(!showPin)} className="text-indigo-600 p-1">
                     {showPin ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                   </button>
                 </div>
-
-                <span className="inline-block mt-2 px-2.5 py-0.5 bg-emerald-50 text-emerald-700 font-bold text-[10px] rounded-full border border-emerald-200">
-                  Verified Retailer
-                </span>
               </div>
-
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <div className="bg-slate-50 border rounded-2xl p-3 text-center">
                   <span className="text-[10px] text-slate-500 block mb-0.5 font-bold">মেইন ব্যালেন্স</span>
@@ -492,13 +577,18 @@ export default function UserApp() {
 
         {activeSection === 'add_balance' && (
           <div className="space-y-3.5">
+            {!addMoneyEnabled && (
+              <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3 text-rose-700 font-bold text-center">
+            	⚠️ বর্তমানে অ্যাডমিন কর্তৃক Add Balance সার্ভিস সাময়িক বন্ধ রয়েছে।
+              </div>
+            )}
             <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-3.5 space-y-1.5 shadow-sm">
               <div className="flex items-center gap-1.5 text-indigo-900 font-extrabold text-xs">
                 <Info className="w-4 h-4 text-indigo-600 shrink-0" />
-                <span>টাকা অ্যাড করার নিয়ম:</span>
+                <span>টাকা অ্যাড করার নিয়ম:</span>
               </div>
               <p className="text-[11px] text-indigo-800 leading-relaxed pl-5">
-                প্রথমে অ্যাডমিনের দেওয়া নাম্বারটি কপি করে আপনার বিকাশ/নগদ থেকে টাকা পাঠান। এরপর ট্রানজেকশন আইডি (TrxID) ও কত টাকা পাঠিয়েছেন তা এখানে লিখে নিচে কনফার্ম করুন।
+                প্রথমে অ্যাডমিনের দেওয়া নাম্বারটি কপি করে আপনার বিকাশ/নগদ থেকে টাকা পাঠান। এরপর ট্রানজেকশন আইডি (TrxID) ও কত টাকা পাঠিয়েছেন তা এখানে লিখে নিচে কনফার্ম করুন।
               </p>
             </div>
 
@@ -538,7 +628,7 @@ export default function UserApp() {
                 <label className="text-[10px] font-bold text-slate-500 block mb-1">ট্রানজ্যাকশন আইডি (TrxID)</label>
                 <input type="text" placeholder="যেমন: BK990011" value={trxId} onChange={(e) => setTrxId(e.target.value)} className="w-full bg-slate-50 border rounded-xl p-2.5 text-xs font-mono font-bold uppercase" />
               </div>
-              <button onClick={handleAddBalanceSubmit} className="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl shadow-md">পেমেন্ট সাবমিট করুন</button>
+              <button disabled={!addMoneyEnabled} onClick={handleAddBalanceSubmit} className={`w-full py-3 text-white font-bold rounded-xl shadow-md ${!addMoneyEnabled ? 'bg-slate-300' : 'bg-emerald-600'}`}>পেমেন্ট সাবমিট করুন</button>
             </div>
           </div>
         )}
@@ -563,12 +653,12 @@ export default function UserApp() {
                       {offer.note && <p className="text-[10px] text-slate-500 mt-0.5">📌 {offer.note}</p>}
                     </div>
                     <div className="text-right">
-                      <span className="text-sm font-black font-mono text-indigo-600 block">৳{offer.price}</span>
+                      <span className="text-sm font-black font-mono text-indigo-600 block">৳{offer.offerPrice || offer.price}</span>
                       <span className="text-[9px] text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">ক্যাশব্যাক ৳{offer.cashback}</span>
                     </div>
                   </div>
                   <div className="flex justify-end pt-1 border-t border-slate-100">
-                    <button onClick={() => setOrderingOffer(offer)} className="py-1.5 px-4 bg-indigo-600 text-white font-bold text-xs rounded-xl shadow-sm">কিনুন</button>
+                    <button onClick={() => setOrderingOffer({ ...offer, price: offer.offerPrice || offer.price })} className="py-1.5 px-4 bg-indigo-600 text-white font-bold text-xs rounded-xl shadow-sm">কিনুন</button>
                   </div>
                 </div>
               ))}
@@ -654,13 +744,13 @@ export default function UserApp() {
             ))}
             {historyTab === 'flexiload' && userFlexiLogs.map(flx => (
               <div key={flx.id} className="bg-white border rounded-xl p-3 flex justify-between items-center shadow-sm">
-                <div><p className="font-bold">{flx.operator} - ৳{flx.amount} ({flx.simType})</p><p className="text-[10px] text-slate-500 font-mono">নম্বর: {flx.number}</p></div>
+                <div><p className="font-bold">{flx.operator} - ৳{flx.amount}</p><p className="text-[10px] text-slate-500 font-mono">নম্বর: {flx.targetNumber}</p></div>
                 <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-1 rounded">{flx.status}</span>
               </div>
             ))}
             {historyTab === 'drive' && userDriveLogs.map(drv => (
               <div key={drv.id} className="bg-white border rounded-xl p-3 flex justify-between items-center shadow-sm">
-                <div><p className="font-bold">{drv.operator} - {drv.title} (৳{drv.price})</p><p className="text-[10px] text-slate-500 font-mono">নম্বর: {drv.number}</p></div>
+                <div><p className="font-bold">{drv.operator} - {drv.packageTitle} (৳{drv.price})</p><p className="text-[10px] text-slate-500 font-mono">নম্বর: {drv.targetNumber}</p></div>
                 <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-1 rounded">{drv.status}</span>
               </div>
             ))}
@@ -700,12 +790,12 @@ export default function UserApp() {
 
       {popupAlert && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-5 max-w-xs w-full text-center space-y-4 shadow-2xl animate-in fade-in zoom-in-95">
+          <div className="bg-white rounded-3xl p-5 max-w-xs w-full text-center space-y-4 shadow-2xl">
             <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
               <Clock className="w-6 h-6 animate-spin" />
             </div>
             <h4 className="text-xs font-black text-slate-900 whitespace-pre-line leading-relaxed">{popupAlert}</h4>
-            <button onClick={() => setPopupAlert(null)} className="w-full py-2.5 bg-indigo-600 text-white font-bold text-xs rounded-xl shadow-md active:scale-95">
+            <button onClick={() => setPopupAlert(null)} className="w-full py-2.5 bg-indigo-600 text-white font-bold text-xs rounded-xl shadow-md">
               ঠিক আছে
             </button>
           </div>
