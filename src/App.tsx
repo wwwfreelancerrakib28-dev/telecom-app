@@ -6,45 +6,70 @@ import {
   Wallet, 
   History, 
   MessageSquare, 
-  Share2, 
-  User, 
   Bell, 
   LogOut, 
   ArrowLeft, 
   Ticket, 
   Copy, 
   Check, 
-  Lock, 
-  Smartphone,
-  CheckCircle,
   XCircle,
   Radio
 } from 'lucide-react';
 
 export default function UserApp() {
   const [isLoggedIn, setIsLoggedIn] = useState(true);
-  const [activeSection, setActiveSection] = useState<'menu' | 'flexiload' | 'drive' | 'scratch' | 'add_balance' | 'history' | 'chats' | 'profile' | 'notifications'>('menu');
+  const [activeSection, setActiveSection] = useState<'menu' | 'flexiload' | 'drive' | 'scratch' | 'add_balance' | 'history' | 'chats' | 'notifications'>('menu');
   
-  // ইউজার প্রোফাইল ও ব্যালেন্স স্টেট
-  const [userProfile] = useState({
+  const [userProfile, setUserProfile] = useState({
     name: 'Md. Tanvir Hasan',
     phone: '01712-345678',
-    pin: '1234',
     mainBalance: 1450,
     driveBalance: 3820
   });
 
-  // রানিং নোটিশ (অ্যাডমিন প্যানেল থেকে যা সেট করা হবে)
-  const [runningNotice] = useState('🎉 স্বাগতম SIM OFFER SHOP এ! যেকোনো সমস্যায় আমাদের লাইভ চ্যাটে যোগাযোগ করুন।');
+  const [runningNotice] = useState('🎉 স্বাগতম SIM OFFER SHOP এ! ড্রাইভ প্যাক কেনার আগে সিমের ইমার্জেন্সি ব্যালেন্স চেক করে নিন।');
 
-  // নোটিফিকেশন ইনবক্স স্টেট (অ্যাডমিন থেকে পাঠানো পার্সোনাল বা গ্লোবাল নোটিশ)
   const [notifications, setNotifications] = useState([
     { id: '1', title: 'স্বাগতম!', msg: 'আপনার অ্যাকাউন্ট সফলভাবে ভেরিফাই হয়েছে।', time: '10:30 AM', read: false },
-    { id: '2', title: 'ড্রাইভ অফার', msg: 'আজ জিপি এবং রবি সিমে দুর্দান্ত ক্যাশব্যাক চলছে!', time: 'Yesterday', read: true }
+    { id: '2', title: 'ড্রাইভ অফার', msg: 'আজ জিপি এবং রবি সিমে আকর্ষণীয় ক্যাশব্যাক অফার চলছে!', time: 'Yesterday', read: true }
   ]);
 
-  // স্ক্র্যাচ কার্ড স্টেট
-  const [scratchCards, setScratchCards] = useState([
+  const [paymentNumbers] = useState({
+    bkash: '01728116153',
+    nagad: '01728116153',
+    rocket: '01728116153'
+  });
+  const [addMoneyEnabled] = useState(true);
+
+  const [selectedMethod, setSelectedMethod] = useState('bKash');
+  const [balanceType, setBalanceType] = useState('main');
+  const [addAmount, setAddAmount] = useState('');
+  const [trxId, setTrxId] = useState('');
+
+  const [driveServiceEnabled] = useState(true);
+  const [operatorStatus] = useState<Record<string, boolean>>({
+    Grameenphone: true,
+    Robi: true,
+    Banglalink: true,
+    Airtel: true,
+    Teletalk: true
+  });
+
+  const [selectedDriveOp, setSelectedDriveOp] = useState('Grameenphone');
+  const [driveOffers] = useState([
+    { id: '1', operator: 'Grameenphone', title: '30 GB + 700 Min (30 Days)', price: 580, cashback: 119, note: 'ঢাকা ও চট্টগ্রাম বিভাগ পাবে' },
+    { id: '2', operator: 'Grameenphone', title: '50 GB Internet (30 Days)', price: 499, cashback: 80, note: 'অল বাংলাদেশ পাবে' },
+    { id: '3', operator: 'Robi', title: '50 GB + 1000 Min (30 Days)', price: 750, cashback: 149, note: 'সকল গ্রাহক পাবে' },
+    { id: '4', operator: 'Banglalink', title: '40 GB + 800 Min (30 Days)', price: 620, cashback: 110, note: 'সারাদেশে সচল' },
+    { id: '5', operator: 'Airtel', title: '35 GB + 650 Min (30 Days)', price: 540, cashback: 90, note: 'অল বাংলাদেশ' },
+    { id: '6', operator: 'Teletalk', title: '25 GB + 500 Min (30 Days)', price: 399, cashback: 70, note: 'টেলিটক স্পেশাল প্যাক' }
+  ]);
+
+  const [orderingOffer, setOrderingOffer] = useState<any | null>(null);
+  const [targetDriveNumber, setTargetDriveNumber] = useState('');
+  const [hasSimLoan, setHasSimLoan] = useState<boolean | null>(null);
+
+  const [scratchCards] = useState([
     { id: 'SC-1', type: 'Minute', title: '৫০ মিনিট প্যাক', price: 30, pin: '*123*88493021#' },
     { id: 'SC-2', type: 'Internet', title: '১ জিবি এমবি প্যাক', price: 25, pin: '*567*99201934#' }
   ]);
@@ -54,37 +79,80 @@ export default function UserApp() {
   const handleCopyPin = (pin: string, id: string) => {
     navigator.clipboard.writeText(pin);
     setCopiedId(id);
-    setPopupAlert('🎉 আপনার স্ক্র্যাচ কার্ডের নম্বরটি সফলভাবে কপি করা হয়ে গেছে! ডায়াল করে আপনার মিনিট/এমবি উপভোগ করুন।');
+    setPopupAlert('🎉 আপনার স্ক্র্যাচ কার্ডের নম্বরটি কপি হয়েছে! ডায়াল করে উপভোগ করুন।');
     setTimeout(() => {
       setCopiedId(null);
       setPopupAlert(null);
     }, 3500);
   };
 
-  // ফ্লেক্সিলোড ও ড্রাইভ ফর্ম স্টেট
+  const handleCopyPaymentNumber = (num: string, id: string) => {
+    navigator.clipboard.writeText(num);
+    setCopiedId(id);
+    setPopupAlert('🎉 পেমেন্ট নম্বর কপি করা হয়েছে!');
+    setTimeout(() => {
+      setCopiedId(null);
+      setPopupAlert(null);
+    }, 2500);
+  };
+
   const [flexiOperator, setFlexiOperator] = useState('Grameenphone');
   const [flexiAmount, setFlexiAmount] = useState('');
   const [flexiPhone, setFlexiPhone] = useState('');
 
-  // অ্যাডমিন কন্ট্রোল সিম স্ট্যাটাস (অ্যাডমিন প্যানেল থেকে নিয়ন্ত্রিত হবে)
-  const [driveServiceEnabled] = useState(true);
-  const [operatorStatus] = useState<Record<string, boolean>>({
-    Grameenphone: true,
-    Robi: true,
-    Banglalink: true,
-    Airtel: true,
-    Teletalk: false
-  });
+  const handleConfirmDriveOrder = () => {
+    if (!targetDriveNumber || targetDriveNumber.length < 11) {
+      alert('সঠিক ১১ ডিজিটের মোবাইল নম্বর লিখুন!');
+      return;
+    }
+    if (hasSimLoan === null) {
+      alert('সিমটিতে লোন আছে কি নেই নির্বাচন করুন!');
+      return;
+    }
+    if (hasSimLoan === true) {
+      alert('⚠️ এই নম্বরে লোন আছে! লোন থাকা অবস্থায় ড্রাইভ রিকোয়েস্ট গ্রহণ করা হবে না।');
+      return;
+    }
+    if (userProfile.driveBalance < orderingOffer.price) {
+      alert('আপনার ড্রাইভ ব্যালেন্সে পর্যাপ্ত টাকা নেই!');
+      return;
+    }
+
+    setUserProfile(prev => ({ ...prev, driveBalance: prev.driveBalance - orderingOffer.price }));
+    setPopupAlert(`🎉 আপনার ড্রাইভ অর্ডার সফলভাবে পাঠানো হয়েছে!`);
+    setOrderingOffer(null);
+    setTargetDriveNumber('');
+    setHasSimLoan(null);
+  };
+
+  const handleAddBalanceSubmit = () => {
+    if (!addAmount || Number(addAmount) <= 0) {
+      alert('সঠিক টাকার পরিমাণ লিখুন!');
+      return;
+    }
+    if (!trxId || trxId.length < 5) {
+      alert('সঠিক ট্রানজ্যাকশন আইডি (TrxID) লিখুন!');
+      return;
+    }
+
+    setPopupAlert(`🎉 আপনার এড-মানি রিকোয়েস্ট সফলভাবে জমা হয়েছে।`);
+    setAddAmount('');
+    setTrxId('');
+  };
 
   const handleBack = () => {
-    if (activeSection !== 'menu') {
+    if (orderingOffer) {
+      setOrderingOffer(null);
+      setTargetDriveNumber('');
+      setHasSimLoan(null);
+    } else if (activeSection !== 'menu') {
       setActiveSection('menu');
     }
   };
 
   useEffect(() => {
     const backListener = CapacitorApp.addListener('backButton', () => {
-      if (activeSection !== 'menu') {
+      if (orderingOffer || activeSection !== 'menu') {
         handleBack();
       } else {
         CapacitorApp.exitApp();
@@ -93,11 +161,12 @@ export default function UserApp() {
     return () => {
       backListener.then(handler => handler.remove());
     };
-  }, [activeSection]);
+  }, [orderingOffer, activeSection]);
+
+  const visibleOffers = driveOffers.filter(o => o.operator === selectedDriveOp);
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col select-none font-sans text-xs">
-      {/* ইউজার অ্যাপ হেডার */}
       <header className="bg-white border-b px-4 py-3.5 flex items-center justify-between sticky top-0 z-20 shadow-sm">
         <div className="flex items-center gap-3">
           {activeSection !== 'menu' ? (
@@ -119,7 +188,6 @@ export default function UserApp() {
           <button 
             onClick={() => setActiveSection('notifications')} 
             className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 relative active:scale-95"
-            title="নোটিফিকেশন"
           >
             <Bell className="w-4 h-4" />
             {notifications.some(n => !n.read) && (
@@ -129,23 +197,20 @@ export default function UserApp() {
           <button 
             onClick={() => setIsLoggedIn(false)} 
             className="p-2 rounded-xl bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-700 active:scale-95"
-            title="লগআউট"
           >
             <LogOut className="w-4 h-4" />
           </button>
         </div>
       </header>
 
-      {/* রানিং নোটিশ টিকার */}
       <div className="bg-amber-500 text-slate-950 px-4 py-1.5 text-[11px] font-bold overflow-hidden whitespace-nowrap shadow-inner flex items-center gap-2">
-        <span className="bg-slate-950 text-amber-400 px-2 py-0.5 rounded text-[9px] uppercase">Notice</span>
-        <span className="animate-marquee">{runningNotice}</span>
+        <span className="bg-slate-950 text-amber-400 px-2 py-0.5 rounded text-[9px] uppercase font-black">Notice</span>
+        <span className="font-medium">{runningNotice}</span>
       </div>
 
       <main className="flex-1 p-4 max-w-lg mx-auto w-full overflow-y-auto space-y-4">
         {activeSection === 'menu' && (
           <div className="space-y-4">
-            {/* ব্যালেন্স কার্ড */}
             <div className="bg-gradient-to-tr from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-5 text-white shadow-xl space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider bg-white/10 px-2.5 py-1 rounded-lg">
@@ -168,7 +233,6 @@ export default function UserApp() {
               </div>
             </div>
 
-            {/* কুইক অ্যাকশন বা সার্ভিস মেনু */}
             <div className="space-y-2">
               <div className="flex justify-between items-center px-1">
                 <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">Quick Actions</h4>
@@ -247,7 +311,178 @@ export default function UserApp() {
           </div>
         )}
 
-        {/* স্ক্র্যাচ কার্ড পেজ (যেখানে ইউজার কার্ড কিনতে ও পিন কপি করতে পারবে) */}
+        {activeSection === 'add_balance' && (
+          <div className="space-y-3.5">
+            {!addMoneyEnabled ? (
+              <div className="bg-rose-50 border border-rose-200 rounded-3xl p-6 text-center space-y-2 shadow-sm">
+                <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto">
+                  <XCircle className="w-6 h-6" />
+                </div>
+                <h4 className="text-sm font-black text-rose-900">বর্তমানে এড ব্যালেন্স সার্ভিস বন্ধ আছে!</h4>
+              </div>
+            ) : (
+              <div className="space-y-3.5">
+                <div className="bg-white border rounded-3xl p-4 space-y-3 shadow-sm">
+                  <h4 className="font-bold text-slate-900 border-b pb-2 flex items-center gap-1.5">
+                    <Wallet className="w-4 h-4 text-emerald-600" /> টাকা অ্যাড করুন (Add Balance)
+                  </h4>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block mb-1">পেমেন্ট মাধ্যম সিলেক্ট করুন</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {['bKash', 'Nagad', 'Rocket'].map((m) => (
+                        <button
+                          key={m}
+                          onClick={() => setSelectedMethod(m)}
+                          className={`py-2.5 rounded-2xl font-bold text-xs border transition-all ${
+                            selectedMethod === m ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-slate-50 text-slate-700 border-slate-200'
+                          }`}
+                        >
+                          {m}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-1.5">
+                    <p className="text-[11px] text-slate-600 font-semibold">
+                      এই <span className="text-indigo-600 font-bold">{selectedMethod}</span> নম্বরে টাকা পাঠান:
+                    </p>
+                    <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl p-2.5">
+                      <span className="font-mono text-indigo-700 font-black text-sm">
+                        {selectedMethod === 'bKash' ? paymentNumbers.bkash : selectedMethod === 'Nagad' ? paymentNumbers.nagad : paymentNumbers.rocket}
+                      </span>
+                      <button
+                        onClick={() => handleCopyPaymentNumber(
+                          selectedMethod === 'bKash' ? paymentNumbers.bkash : selectedMethod === 'Nagad' ? paymentNumbers.nagad : paymentNumbers.rocket,
+                          'pay-num'
+                        )}
+                        className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg text-[10px] font-bold flex items-center gap-1 active:scale-95"
+                      >
+                        {copiedId === 'pay-num' ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                        <span>{copiedId === 'pay-num' ? 'কপি!' : 'নম্বর কপি'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block mb-1">কোন ব্যালেন্সে এড করতে চান?</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setBalanceType('main')}
+                        className={`py-2 rounded-xl font-bold text-xs ${balanceType === 'main' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-slate-50 border text-slate-600'}`}
+                      >
+                        মেইন ব্যালেন্স
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBalanceType('drive')}
+                        className={`py-2 rounded-xl font-bold text-xs ${balanceType === 'drive' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-slate-50 border text-slate-600'}`}
+                      >
+                        ড্রাইভ ব্যালেন্স
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block mb-1">টাকার পরিমাণ (৳)</label>
+                    <input
+                      type="number"
+                      placeholder="যেমন: 500"
+                      value={addAmount}
+                      onChange={(e) => setAddAmount(e.target.value)}
+                      className="w-full bg-slate-50 border rounded-xl p-2.5 text-xs font-mono font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 block mb-1">ট্রানজ্যাকশন আইডি (TrxID)</label>
+                    <input
+                      type="text"
+                      placeholder="যেমন: BK990011"
+                      value={trxId}
+                      onChange={(e) => setTrxId(e.target.value)}
+                      className="w-full bg-slate-50 border rounded-xl p-2.5 text-xs font-mono font-bold uppercase"
+                    />
+                  </div>
+
+                  <button
+                    onClick={handleAddBalanceSubmit}
+                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md active:scale-95 transition-all"
+                  >
+                    পেমেন্ট সাবমিট করুন
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeSection === 'drive' && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-5 gap-1 bg-slate-200/80 p-1.5 rounded-2xl">
+              {['Grameenphone', 'Robi', 'Banglalink', 'Airtel', 'Teletalk'].map((op) => (
+                <button
+                  key={op}
+                  onClick={() => setSelectedDriveOp(op)}
+                  className={`py-2 rounded-xl text-[10px] font-black transition-all flex flex-col items-center justify-center ${
+                    selectedDriveOp === op ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600'
+                  }`}
+                >
+                  <span>{op === 'Grameenphone' ? 'GP' : op === 'Banglalink' ? 'BL' : op}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="space-y-2.5">
+              {visibleOffers.map((offer) => (
+                <div key={offer.id} className="bg-white border rounded-2xl p-3.5 space-y-2 shadow-sm">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded uppercase">{offer.operator}</span>
+                      <h4 className="text-xs font-black text-slate-900 mt-1">{offer.title}</h4>
+                      {offer.note && <p className="text-[10px] text-slate-500 mt-0.5">📌 {offer.note}</p>}
+                    </div>
+                    <div className="text-right">
+                      <span className="text-sm font-black font-mono text-indigo-600 block">৳{offer.price}</span>
+                      <span className="text-[9px] text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">ক্যাশব্যাক ৳{offer.cashback}</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-end pt-1 border-t border-slate-100">
+                    <button onClick={() => setOrderingOffer(offer)} className="py-1.5 px-4 bg-indigo-600 text-white font-bold text-xs rounded-xl shadow-sm">
+                      কিনুন
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {orderingOffer && (
+              <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+                <div className="bg-white rounded-3xl p-5 max-w-xs w-full space-y-3.5 shadow-2xl">
+                  <h4 className="text-xs font-black text-slate-900 border-b pb-2">{orderingOffer.title} - ৳{orderingOffer.price}</h4>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-600 block mb-1">প্রাপক মোবাইল নম্বর</label>
+                    <input type="tel" maxLength={11} placeholder="01XXXXXXXXX" value={targetDriveNumber} onChange={(e) => setTargetDriveNumber(e.target.value)} className="w-full bg-slate-50 border rounded-xl p-2.5 text-xs font-mono font-bold" />
+                  </div>
+                  <div className="bg-amber-50 p-2.5 rounded-2xl space-y-2 border border-amber-200">
+                    <label className="text-[11px] font-extrabold text-amber-900 block">⚠️ এই নাম্বারে কি লোন আছে?</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button type="button" onClick={() => setHasSimLoan(true)} className={`py-2 rounded-xl font-bold text-xs ${hasSimLoan === true ? 'bg-rose-600 text-white' : 'bg-white'}`}>হ্যাঁ</button>
+                      <button type="button" onClick={() => setHasSimLoan(false)} className={`py-2 rounded-xl font-bold text-xs ${hasSimLoan === false ? 'bg-emerald-600 text-white' : 'bg-white'}`}>না</button>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setOrderingOffer(null)} className="flex-1 py-2 bg-slate-100 rounded-xl font-bold">বাতিল</button>
+                    <button disabled={hasSimLoan === true} onClick={handleConfirmDriveOrder} className={`flex-1 py-2 text-white font-bold rounded-xl ${hasSimLoan === true ? 'bg-slate-300' : 'bg-emerald-600'}`}>কনফার্ম</button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {activeSection === 'scratch' && (
           <div className="space-y-3">
             <h4 className="font-bold text-slate-800 px-1">আপনার কেনা স্ক্র্যাচ কার্ডসমূহ</h4>
@@ -258,10 +493,9 @@ export default function UserApp() {
                   <span className="text-xs font-mono font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">৳{card.price}</span>
                 </div>
                 <div className="bg-slate-50 border rounded-xl p-2.5 flex justify-between items-center">
-                  <span className="font-mono text-indigo-700 font-bold text-sm tracking-wider">{card.pin}</span>
-                  <button onClick={() => handleCopyPin(card.pin, card.id)} className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95">
-                    {copiedId === card.id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedId === card.id ? 'কপি হয়েছে!' : 'পিন কপি'}</span>
+                  <span className="font-mono text-indigo-700 font-bold text-sm">{card.pin}</span>
+                  <button onClick={() => handleCopyPin(card.pin, card.id)} className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-bold flex items-center gap-1">
+                    <Copy className="w-3.5 h-3.5" /> কপি
                   </button>
                 </div>
               </div>
@@ -269,56 +503,34 @@ export default function UserApp() {
           </div>
         )}
 
-        {/* ড্রাইভ প্যাক পেজ (যদি অ্যাডমিন ড্রাইভ অফার বন্ধ রাখেন তবে নোটিশ দেখাবে) */}
-        {activeSection === 'drive' && (
-          <div className="space-y-3">
-            {!driveServiceEnabled ? (
-              <div className="bg-rose-50 border border-rose-200 rounded-3xl p-6 text-center space-y-2">
-                <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto">
-                  <XCircle className="w-6 h-6" />
-                </div>
-                <h4 className="text-sm font-bold text-rose-900">বর্তমানে ড্রাইভ অফার বন্ধ আছে!</h4>
-                <p className="text-xs text-rose-600">অ্যাডমিন প্যানেল থেকে ড্রাইভ সার্ভিস সাময়িকভাবে স্থগিত রাখা হয়েছে। অনুগ্রহ করে পরবর্তীতে চেষ্টা করুন।</p>
-              </div>
-            ) : (
-              <div className="bg-white border rounded-2xl p-4 text-center text-slate-500">
-                সকল সচল ড্রাইভ প্যাক লিস্ট এখানে শো করবে...
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ফ্লেক্সিলোড পেজ */}
         {activeSection === 'flexiload' && (
           <div className="bg-white border rounded-3xl p-4 space-y-3 shadow-sm">
-            <h4 className="font-bold text-slate-900 border-b pb-2">মোবাইল ফ্লেক্সিলোড / রিচার্জ</h4>
+            <h4 className="font-bold text-slate-900 border-b pb-2">মোবাইল ফ্লেক্সিলোড</h4>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 block mb-1">অপারেটর সিলেক্ট করুন</label>
+              <label className="text-[10px] font-bold text-slate-500 block mb-1">অপারেটর</label>
               <select value={flexiOperator} onChange={(e) => setFlexiOperator(e.target.value)} className="w-full bg-slate-50 border rounded-xl p-2.5 font-bold">
                 <option value="Grameenphone">Grameenphone</option>
                 <option value="Robi">Robi</option>
                 <option value="Banglalink">Banglalink</option>
                 <option value="Airtel">Airtel</option>
+                <option value="Teletalk">Teletalk</option>
               </select>
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 block mb-1">মোবাইল নম্বর</label>
+              <label className="text-[10px] font-bold text-slate-500 block mb-1">নম্বর</label>
               <input type="tel" placeholder="017XXXXXXXX" value={flexiPhone} onChange={(e) => setFlexiPhone(e.target.value)} className="w-full bg-slate-50 border rounded-xl p-2.5 font-mono" />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 block mb-1">টাকার পরিমাণ (৳)</label>
+              <label className="text-[10px] font-bold text-slate-500 block mb-1">টাকা (৳)</label>
               <input type="number" placeholder="100" value={flexiAmount} onChange={(e) => setFlexiAmount(e.target.value)} className="w-full bg-slate-50 border rounded-xl p-2.5 font-mono font-bold" />
             </div>
-            <button onClick={() => alert('রিচার্জ রিকোয়েস্ট সফলভাবে সাবমিট হয়েছে!')} className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-md">
-              রিচার্জ কনফার্ম করুন
-            </button>
+            <button onClick={() => alert('রিচার্জ রিকোয়েস্ট সাবমিট হয়েছে!')} className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl">রিচার্জ কনফার্ম</button>
           </div>
         )}
 
-        {/* নোটিফিকেশন ইনবক্স */}
         {activeSection === 'notifications' && (
           <div className="space-y-2.5">
-            <h4 className="font-bold text-slate-800 px-1">আপনার নোটিফিকেশন ইনবক্স</h4>
+            <h4 className="font-bold text-slate-800 px-1">নোটিফিকেশন ইনবক্স</h4>
             {notifications.map(n => (
               <div key={n.id} className="bg-white border rounded-2xl p-3.5 space-y-1 shadow-sm">
                 <div className="flex justify-between items-center">
@@ -331,13 +543,10 @@ export default function UserApp() {
           </div>
         )}
 
-        {/* লাইভ চ্যাট */}
         {activeSection === 'chats' && (
           <div className="bg-white border rounded-2xl p-3 h-[400px] flex flex-col shadow-sm">
-            <div className="border-b pb-1.5 mb-2 font-bold flex items-center gap-1.5">
-              <MessageSquare className="w-4 h-4 text-indigo-600" /> অ্যাডমিনের সাথে লাইভ চ্যাট
-            </div>
-            <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+            <div className="border-b pb-1.5 mb-2 font-bold">অ্যাডমিনের সাথে লাইভ চ্যাট</div>
+            <div className="flex-1 overflow-y-auto space-y-2">
               <div className="flex justify-start">
                 <div className="max-w-[80%] bg-slate-100 text-slate-800 rounded-2xl px-3.5 py-2 text-xs">
                   আসসালামু আলাইকুম! বলুন আপনাকে কীভাবে সাহায্য করতে পারি?
@@ -345,16 +554,19 @@ export default function UserApp() {
               </div>
             </div>
             <div className="flex gap-1.5 pt-2 border-t mt-2">
-              <input type="text" placeholder="আপনার সমস্যা লিখুন..." className="flex-1 bg-slate-50 border rounded-xl px-3 py-2 text-xs focus:outline-none" />
-              <button onClick={() => alert('মেসেজ পাঠানো হয়েছে!')} className="p-2.5 bg-indigo-600 text-white rounded-xl">
-                <Send className="w-4 h-4" />
-              </button>
+              <input type="text" placeholder="সমস্যা লিখুন..." className="flex-1 bg-slate-50 border rounded-xl px-3 py-2 text-xs" />
+              <button onClick={() => alert('মেসেজ পাঠানো হয়েছে!')} className="p-2.5 bg-indigo-600 text-white rounded-xl"><Send className="w-4 h-4" /></button>
             </div>
+          </div>
+        )}
+
+        {activeSection === 'history' && (
+          <div className="bg-white border rounded-3xl p-6 text-center text-slate-400 shadow-sm">
+            আপনার সকল লেনদেনের রিপোর্ট এখানে সংরক্ষিত আছে।
           </div>
         )}
       </main>
 
-      {/* পপ-আপ অ্যালার্ট */}
       {popupAlert && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-5 max-w-xs w-full text-center space-y-3 shadow-2xl">
@@ -366,4 +578,4 @@ export default function UserApp() {
       )}
     </div>
   );
-        }
+  }
