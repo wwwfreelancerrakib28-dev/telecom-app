@@ -1,416 +1,369 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { App as CapApp } from '@capacitor/app';
-import { CheckCircle2, AlertTriangle, WifiOff, RefreshCw } from 'lucide-react';
-import { UserProfile, Transaction, ScreenId, OperatorId, ConnectionType, DrivePackage } from './types';
-import { INITIAL_USER, INITIAL_TRANSACTIONS, OPERATORS } from './data/mockData';
-import { AuthScreenView } from './components/screens/AuthScreenView';
-import { HomeDashboardView } from './components/screens/HomeDashboardView';
-import { FlexiloadScreenView } from './components/screens/FlexiloadScreenView';
-import { DrivePackScreenView } from './components/screens/DrivePackScreenView';
-import { AddBalanceScreenView } from './components/screens/AddBalanceScreenView';
-import { HistoryScreenView } from './components/screens/HistoryScreenView';
-import { TransferModal } from './components/modals/TransferModal';
-import { NotificationsModal } from './components/modals/NotificationsModal';
+import React, { useState, useEffect } from 'react';
+import { App as CapacitorApp } from '@capacitor/app';
+import { 
+  Send, 
+  Flame, 
+  Wallet, 
+  History, 
+  MessageSquare, 
+  Share2, 
+  User, 
+  Bell, 
+  LogOut, 
+  ArrowLeft, 
+  Ticket, 
+  Copy, 
+  Check, 
+  Lock, 
+  Smartphone,
+  CheckCircle,
+  XCircle,
+  Radio
+} from 'lucide-react';
 
-export default function App() {
-  const [user, setUser] = useState<UserProfile>(() => {
-    const saved = localStorage.getItem('telecom_user');
-    return saved ? JSON.parse(saved) : INITIAL_USER;
+export default function UserApp() {
+  const [isLoggedIn, setIsLoggedIn] = useState(true);
+  const [activeSection, setActiveSection] = useState<'menu' | 'flexiload' | 'drive' | 'scratch' | 'add_balance' | 'history' | 'chats' | 'profile' | 'notifications'>('menu');
+  
+  // ইউজার প্রোফাইল ও ব্যালেন্স স্টেট
+  const [userProfile] = useState({
+    name: 'Md. Tanvir Hasan',
+    phone: '01712-345678',
+    pin: '1234',
+    mainBalance: 1450,
+    driveBalance: 3820
   });
 
-  const [currentScreen, setCurrentScreen] = useState<ScreenId>(() => {
-    const saved = localStorage.getItem('telecom_user_logged_in');
-    return saved === 'true' ? 'home' : 'auth';
-  });
+  // রানিং নোটিশ (অ্যাডমিন প্যানেল থেকে যা সেট করা হবে)
+  const [runningNotice] = useState('🎉 স্বাগতম SIM OFFER SHOP এ! যেকোনো সমস্যায় আমাদের লাইভ চ্যাটে যোগাযোগ করুন।');
 
-  const [historyStack, setHistoryStack] = useState<ScreenId[]>(() => {
-    const saved = localStorage.getItem('telecom_user_logged_in');
-    return saved === 'true' ? ['home'] : ['auth'];
-  });
+  // নোটিফিকেশন ইনবক্স স্টেট (অ্যাডমিন থেকে পাঠানো পার্সোনাল বা গ্লোবাল নোটিশ)
+  const [notifications, setNotifications] = useState([
+    { id: '1', title: 'স্বাগতম!', msg: 'আপনার অ্যাকাউন্ট সফলভাবে ভেরিফাই হয়েছে।', time: '10:30 AM', read: false },
+    { id: '2', title: 'ড্রাইভ অফার', msg: 'আজ জিপি এবং রবি সিমে দুর্দান্ত ক্যাশব্যাক চলছে!', time: 'Yesterday', read: true }
+  ]);
 
-  const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
-  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [showExitConfirm, setShowExitConfirm] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  // স্ক্র্যাচ কার্ড স্টেট
+  const [scratchCards, setScratchCards] = useState([
+    { id: 'SC-1', type: 'Minute', title: '৫০ মিনিট প্যাক', price: 30, pin: '*123*88493021#' },
+    { id: 'SC-2', type: 'Internet', title: '১ জিবি এমবি প্যাক', price: 25, pin: '*567*99201934#' }
+  ]);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [popupAlert, setPopupAlert] = useState<string | null>(null);
 
-  // রেফারেন্স দিয়ে ব্যাক বাটনের স্টেপ ট্র্যাকিং নিশ্চিত করা (যাতে এক লাফে হোমে না যায়)
-  const historyRef = useRef<ScreenId[]>(historyStack);
-  const modalsRef = useRef({ isTransferModalOpen, isNotificationsOpen, showExitConfirm });
-
-  useEffect(() => {
-    historyRef.current = historyStack;
-  }, [historyStack]);
-
-  useEffect(() => {
-    modalsRef.current = { isTransferModalOpen, isNotificationsOpen, showExitConfirm };
-  }, [isTransferModalOpen, isNotificationsOpen, showExitConfirm]);
-
-  // ইন্টারনেট যাচাই স্টেট
-  const [isOnline, setIsOnline] = useState<boolean>(true);
-  const [isCheckingNet, setIsCheckingNet] = useState<boolean>(false);
-
-  const checkRealInternet = async () => {
-    if (!navigator.onLine) {
-      setIsOnline(false);
-      return;
-    }
-    try {
-      setIsCheckingNet(true);
-      await fetch('https://www.google.com/favicon.ico', {
-        method: 'HEAD',
-        mode: 'no-cors',
-        cache: 'no-store'
-      });
-      setIsOnline(true);
-    } catch (err) {
-      setIsOnline(false);
-    } finally {
-      setIsCheckingNet(false);
-    }
-  };
-
-  useEffect(() => {
-    checkRealInternet();
-    const interval = setInterval(checkRealInternet, 6000);
-
-    const handleOnline = () => checkRealInternet();
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
-
-  // ধাপে ধাপে নেভিগেশন
-  const navigateTo = (screen: ScreenId) => {
-    if (screen === currentScreen) return;
-    setHistoryStack((prev) => [...prev, screen]);
-    setCurrentScreen(screen);
-  };
-
-  // একটি করে ব্যাক যাওয়ার নিখুঁত লজিক
-  const goBack = () => {
-    const currentStack = historyRef.current;
-    if (currentStack.length > 1) {
-      const nextStack = [...currentStack];
-      nextStack.pop(); // বর্তমান পেজ বাদ
-      const prevScreen = nextStack[nextStack.length - 1]; // ঠিক আগের পেজ
-      setHistoryStack(nextStack);
-      setCurrentScreen(prevScreen);
-    } else {
-      setShowExitConfirm(true);
-    }
-  };
-
-  // মোবাইল ব্যাক বাটন ইভেন্ট
-  useEffect(() => {
-    let backHandler: any;
-
-    const setupBackButton = async () => {
-      backHandler = await CapApp.addListener('backButton', () => {
-        const { showExitConfirm: isExitOpen, isTransferModalOpen: isTransOpen, isNotificationsOpen: isNotifOpen } = modalsRef.current;
-
-        // ১. কোনো পপ-আপ খোলা থাকলে আগে তা বন্ধ হবে
-        if (isExitOpen) {
-          setShowExitConfirm(false);
-        } else if (isTransOpen) {
-          setIsTransferModalOpen(false);
-        } else if (isNotifOpen) {
-          setIsNotificationsOpen(false);
-        } else {
-          // ২. অন্যথায় কেবল ১ স্টেপ পেছনের স্ক্রিনে যাবে
-          goBack();
-        }
-      });
-    };
-
-    setupBackButton();
-
-    return () => {
-      if (backHandler) {
-        backHandler.remove();
-      }
-    };
-  }, []);
-
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
-  };
-
-  // Flexiload
-  const handleRechargeSuccess = (data: {
-    recipient: string;
-    operator: OperatorId;
-    connectionType: ConnectionType;
-    amount: number;
-  }) => {
-    const operatorObj = OPERATORS[data.operator];
-    setUser((prev) => ({
-      ...prev,
-      mainBalance: prev.mainBalance - data.amount,
-    }));
-
-    const newTxn: Transaction = {
-      id: `TXN-${Date.now().toString().slice(-6)}`,
-      type: 'recharge',
-      title: `Flexiload Recharge (${operatorObj.name})`,
-      recipientOrSenderNumber: data.recipient,
-      operator: data.operator,
-      connectionType: data.connectionType,
-      amount: data.amount,
-      fee: 0,
-      balanceType: 'main',
-      status: 'success',
-      timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-      trxId: `FLX${Date.now().toString().slice(-8)}`,
-    };
-
-    setTransactions((prev) => [newTxn, ...prev]);
-    navigateTo('history');
-    showToast(`৳${data.amount} Flexiload Recharge to ${data.recipient} Successful!`);
-  };
-
-  // Drive Pack
-  const handleBuyDriveSuccess = (data: {
-    recipientPhone: string;
-    pack: DrivePackage;
-  }) => {
-    setUser((prev) => ({
-      ...prev,
-      driveBalance: prev.driveBalance - data.pack.offerPrice,
-    }));
-
-    const newTxn: Transaction = {
-      id: `TXN-${Date.now().toString().slice(-6)}`,
-      type: 'drive_pack',
-      title: `Drive: ${data.pack.title}`,
-      recipientOrSenderNumber: data.recipientPhone,
-      operator: data.pack.operator,
-      amount: data.pack.offerPrice,
-      cashback: data.pack.cashback,
-      balanceType: 'drive',
-      status: 'pending',
-      timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-      trxId: `DRV${Date.now().toString().slice(-8)}`,
-      note: 'Awaiting telecom operator activation. Commission will be credited automatically.',
-    };
-
-    setTransactions((prev) => [newTxn, ...prev]);
-    navigateTo('history');
-    showToast(`Drive pack order submitted! Status: PENDING.`);
-  };
-
-  // Add Balance
-  const handleAddBalanceSuccess = (data: {
-    senderNumber: string;
-    amount: number;
-    trxId: string;
-    balanceType: 'main' | 'drive';
-    paymentMethod: 'bKash' | 'Nagad' | 'Rocket';
-  }) => {
+  const handleCopyPin = (pin: string, id: string) => {
+    navigator.clipboard.writeText(pin);
+    setCopiedId(id);
+    setPopupAlert('🎉 আপনার স্ক্র্যাচ কার্ডের নম্বরটি সফলভাবে কপি করা হয়ে গেছে! ডায়াল করে আপনার মিনিট/এমবি উপভোগ করুন।');
     setTimeout(() => {
-      setUser((prev) => ({
-        ...prev,
-        mainBalance: data.balanceType === 'main' ? prev.mainBalance + data.amount : prev.mainBalance,
-        driveBalance: data.balanceType === 'drive' ? prev.driveBalance + data.amount : prev.driveBalance,
-      }));
-    }, 2000);
-
-    const newTxn: Transaction = {
-      id: `TXN-${Date.now().toString().slice(-6)}`,
-      type: 'add_balance',
-      title: `Add Balance (${data.paymentMethod})`,
-      recipientOrSenderNumber: data.senderNumber,
-      amount: data.amount,
-      balanceType: data.balanceType,
-      status: 'pending',
-      timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-      paymentMethod: data.paymentMethod,
-      trxId: data.trxId,
-      note: 'Verifying with payment gateway daemon.',
-    };
-
-    setTransactions((prev) => [newTxn, ...prev]);
-    navigateTo('history');
-    showToast(`Add Balance request of ৳${data.amount} submitted (TrxID: ${data.trxId}).`);
+      setCopiedId(null);
+      setPopupAlert(null);
+    }, 3500);
   };
 
-  // Transfer
-  const handleTransferSuccess = (
-    amount: number,
-    from: 'main' | 'drive',
-    to: 'main' | 'drive',
-    note: string
-  ) => {
-    setUser((prev) => {
-      const fromKey = from === 'main' ? 'mainBalance' : 'driveBalance';
-      const toKey = to === 'main' ? 'mainBalance' : 'driveBalance';
-      return {
-        ...prev,
-        [fromKey]: prev[fromKey] - amount,
-        [toKey]: prev[toKey] + amount,
-      };
+  // ফ্লেক্সিলোড ও ড্রাইভ ফর্ম স্টেট
+  const [flexiOperator, setFlexiOperator] = useState('Grameenphone');
+  const [flexiAmount, setFlexiAmount] = useState('');
+  const [flexiPhone, setFlexiPhone] = useState('');
+
+  // অ্যাডমিন কন্ট্রোল সিম স্ট্যাটাস (অ্যাডমিন প্যানেল থেকে নিয়ন্ত্রিত হবে)
+  const [driveServiceEnabled] = useState(true);
+  const [operatorStatus] = useState<Record<string, boolean>>({
+    Grameenphone: true,
+    Robi: true,
+    Banglalink: true,
+    Airtel: true,
+    Teletalk: false
+  });
+
+  const handleBack = () => {
+    if (activeSection !== 'menu') {
+      setActiveSection('menu');
+    }
+  };
+
+  useEffect(() => {
+    const backListener = CapacitorApp.addListener('backButton', () => {
+      if (activeSection !== 'menu') {
+        handleBack();
+      } else {
+        CapacitorApp.exitApp();
+      }
     });
-
-    const newTxn: Transaction = {
-      id: `TXN-${Date.now().toString().slice(-6)}`,
-      type: 'transfer',
-      title: `Transfer (${from.toUpperCase()} to ${to.toUpperCase()})`,
-      recipientOrSenderNumber: user.phone,
-      amount: amount,
-      balanceType: from,
-      status: 'success',
-      timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-      note,
+    return () => {
+      backListener.then(handler => handler.remove());
     };
-
-    setTransactions((prev) => [newTxn, ...prev]);
-    showToast(`Transferred ৳${amount} from ${from} to ${to} balance.`);
-  };
-
-  // নো ইন্টারনেট স্ক্রিন
-  if (!isOnline) {
-    return (
-      <div className="fixed inset-0 z-50 bg-slate-950 text-white flex flex-col items-center justify-center p-6 text-center select-none">
-        <div className="w-20 h-20 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-500 mb-6 shadow-xl shadow-rose-500/10">
-          <WifiOff className="w-10 h-10 animate-pulse" />
-        </div>
-        <h2 className="text-xl font-bold tracking-tight mb-2">ইন্টারনেট সংযোগ নেই!</h2>
-        <p className="text-xs text-slate-400 max-w-xs leading-relaxed mb-8">
-          SIM OFFER SHOP অ্যাপটি ব্যবহার করতে আপনার ইন্টারনেট সংযোগ চালু করুন।
-        </p>
-        <button
-          onClick={checkRealInternet}
-          disabled={isCheckingNet}
-          className="w-full max-w-xs py-3.5 bg-indigo-600 hover:bg-indigo-500 active:scale-95 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 transition-all disabled:opacity-60"
-        >
-          <RefreshCw className={`w-4 h-4 ${isCheckingNet ? 'animate-spin' : ''}`} />
-          <span>{isCheckingNet ? 'যাচাই করা হচ্ছে...' : 'পুনরায় চেষ্টা করুন'}</span>
-        </button>
-      </div>
-    );
-  }
+  }, [activeSection]);
 
   return (
-    <div className="min-h-screen w-full bg-slate-50 flex flex-col font-sans select-none text-slate-900 overflow-x-hidden">
-      {toastMessage && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 text-white border border-slate-700/80 px-4 py-2.5 rounded-2xl shadow-2xl text-xs font-semibold flex items-center gap-2 backdrop-blur-md">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span>{toastMessage}</span>
+    <div className="min-h-screen bg-slate-50 flex flex-col select-none font-sans text-xs">
+      {/* ইউজার অ্যাপ হেডার */}
+      <header className="bg-white border-b px-4 py-3.5 flex items-center justify-between sticky top-0 z-20 shadow-sm">
+        <div className="flex items-center gap-3">
+          {activeSection !== 'menu' ? (
+            <button onClick={handleBack} className="p-2 -ml-2 rounded-xl bg-slate-100 text-slate-800 active:scale-95">
+              <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
+            </button>
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-black text-sm shadow-md">
+              {userProfile.name.charAt(0)}
+            </div>
+          )}
+          <div>
+            <h2 className="text-xs font-black text-slate-900 leading-tight">{userProfile.name}</h2>
+            <p className="text-[10px] text-slate-500 font-mono">{userProfile.phone}</p>
+          </div>
         </div>
-      )}
 
-      {/* Main Views */}
-      <main className="flex-1 w-full flex flex-col">
-        {currentScreen === 'auth' && (
-          <AuthScreenView
-            user={user}
-            onLoginSuccess={(updatedUser) => {
-              if (updatedUser) setUser(updatedUser);
-              localStorage.setItem('telecom_user_logged_in', 'true');
-              setHistoryStack(['home']);
-              setCurrentScreen('home');
-              showToast('Login Successful!');
-            }}
-          />
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setActiveSection('notifications')} 
+            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 relative active:scale-95"
+            title="নোটিফিকেশন"
+          >
+            <Bell className="w-4 h-4" />
+            {notifications.some(n => !n.read) && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-600 rounded-full animate-pulse" />
+            )}
+          </button>
+          <button 
+            onClick={() => setIsLoggedIn(false)} 
+            className="p-2 rounded-xl bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-700 active:scale-95"
+            title="লগআউট"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
+      </header>
+
+      {/* রানিং নোটিশ টিকার */}
+      <div className="bg-amber-500 text-slate-950 px-4 py-1.5 text-[11px] font-bold overflow-hidden whitespace-nowrap shadow-inner flex items-center gap-2">
+        <span className="bg-slate-950 text-amber-400 px-2 py-0.5 rounded text-[9px] uppercase">Notice</span>
+        <span className="animate-marquee">{runningNotice}</span>
+      </div>
+
+      <main className="flex-1 p-4 max-w-lg mx-auto w-full overflow-y-auto space-y-4">
+        {activeSection === 'menu' && (
+          <div className="space-y-4">
+            {/* ব্যালেন্স কার্ড */}
+            <div className="bg-gradient-to-tr from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-5 text-white shadow-xl space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider bg-white/10 px-2.5 py-1 rounded-lg">
+                  RETAILER ACCOUNT
+                </span>
+                <span className="text-xs text-emerald-400 font-bold flex items-center gap-1">
+                  <span className="w-2 h-2 bg-emerald-400 rounded-full animate-ping" /> Active
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
+                  <span className="text-[10px] text-slate-400 block mb-0.5">মেইন ব্যালেন্স</span>
+                  <h3 className="text-lg font-black font-mono text-white">৳{userProfile.mainBalance}</h3>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
+                  <span className="text-[10px] text-slate-400 block mb-0.5">ড্রাইভ ব্যালেন্স</span>
+                  <h3 className="text-lg font-black font-mono text-amber-400">৳{userProfile.driveBalance}</h3>
+                </div>
+              </div>
+            </div>
+
+            {/* কুইক অ্যাকশন বা সার্ভিস মেনু */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center px-1">
+                <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">Quick Actions</h4>
+                <span className="text-[10px] text-slate-400 font-bold">Services</span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2.5">
+                <button
+                  onClick={() => setActiveSection('flexiload')}
+                  className="bg-white border border-slate-200/80 rounded-3xl p-3.5 flex flex-col items-center text-center shadow-sm hover:shadow-md active:scale-95 transition-all"
+                >
+                  <div className="w-11 h-11 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center mb-2">
+                    <Send className="w-5 h-5" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-900">Flexiload</span>
+                  <span className="text-[9px] text-slate-400">Mobile Top-Up</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveSection('drive')}
+                  className="bg-white border border-slate-200/80 rounded-3xl p-3.5 flex flex-col items-center text-center shadow-sm hover:shadow-md active:scale-95 transition-all relative"
+                >
+                  <span className="absolute top-2 right-2 bg-rose-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full">HOT</span>
+                  <div className="w-11 h-11 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-2">
+                    <Flame className="w-5 h-5" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-900">Drive Pack</span>
+                  <span className="text-[9px] text-slate-400">Data & Minutes</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveSection('scratch')}
+                  className="bg-white border border-slate-200/80 rounded-3xl p-3.5 flex flex-col items-center text-center shadow-sm hover:shadow-md active:scale-95 transition-all"
+                >
+                  <div className="w-11 h-11 rounded-2xl bg-pink-50 text-pink-600 flex items-center justify-center mb-2">
+                    <Ticket className="w-5 h-5" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-900">Scratch Card</span>
+                  <span className="text-[9px] text-slate-400">Minute / MB</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveSection('add_balance')}
+                  className="bg-white border border-slate-200/80 rounded-3xl p-3.5 flex flex-col items-center text-center shadow-sm hover:shadow-md active:scale-95 transition-all"
+                >
+                  <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-2">
+                    <Wallet className="w-5 h-5" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-900">Add Balance</span>
+                  <span className="text-[9px] text-slate-400">bKash / Nagad</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveSection('history')}
+                  className="bg-white border border-slate-200/80 rounded-3xl p-3.5 flex flex-col items-center text-center shadow-sm hover:shadow-md active:scale-95 transition-all"
+                >
+                  <div className="w-11 h-11 rounded-2xl bg-violet-50 text-violet-600 flex items-center justify-center mb-2">
+                    <History className="w-5 h-5" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-900">History</span>
+                  <span className="text-[9px] text-slate-400">All Reports</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveSection('chats')}
+                  className="bg-white border border-slate-200/80 rounded-3xl p-3.5 flex flex-col items-center text-center shadow-sm hover:shadow-md active:scale-95 transition-all"
+                >
+                  <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-2">
+                    <MessageSquare className="w-5 h-5" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-900">Live Chat</span>
+                  <span className="text-[9px] text-slate-400">Instant Help</span>
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
-        {currentScreen === 'home' && (
-          <HomeDashboardView
-            user={user}
-            transactions={transactions}
-            onNavigate={(screen) => navigateTo(screen)}
-            onOpenNotifications={() => setIsNotificationsOpen(true)}
-            onOpenTransfer={() => setIsTransferModalOpen(true)}
-            onLogout={() => {
-              localStorage.removeItem('telecom_user_logged_in');
-              setHistoryStack(['auth']);
-              setCurrentScreen('auth');
-              showToast('Logged out of Telecom account.');
-            }}
-          />
+        {/* স্ক্র্যাচ কার্ড পেজ (যেখানে ইউজার কার্ড কিনতে ও পিন কপি করতে পারবে) */}
+        {activeSection === 'scratch' && (
+          <div className="space-y-3">
+            <h4 className="font-bold text-slate-800 px-1">আপনার কেনা স্ক্র্যাচ কার্ডসমূহ</h4>
+            {scratchCards.map((card) => (
+              <div key={card.id} className="bg-white border rounded-2xl p-4 space-y-2 shadow-sm">
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-slate-900 text-sm">{card.title}</span>
+                  <span className="text-xs font-mono font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">৳{card.price}</span>
+                </div>
+                <div className="bg-slate-50 border rounded-xl p-2.5 flex justify-between items-center">
+                  <span className="font-mono text-indigo-700 font-bold text-sm tracking-wider">{card.pin}</span>
+                  <button onClick={() => handleCopyPin(card.pin, card.id)} className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95">
+                    {copiedId === card.id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedId === card.id ? 'কপি হয়েছে!' : 'পিন কপি'}</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
 
-        {currentScreen === 'flexiload' && (
-          <FlexiloadScreenView
-            user={user}
-            onBack={goBack}
-            onRechargeSuccess={handleRechargeSuccess}
-          />
+        {/* ড্রাইভ প্যাক পেজ (যদি অ্যাডমিন ড্রাইভ অফার বন্ধ রাখেন তবে নোটিশ দেখাবে) */}
+        {activeSection === 'drive' && (
+          <div className="space-y-3">
+            {!driveServiceEnabled ? (
+              <div className="bg-rose-50 border border-rose-200 rounded-3xl p-6 text-center space-y-2">
+                <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto">
+                  <XCircle className="w-6 h-6" />
+                </div>
+                <h4 className="text-sm font-bold text-rose-900">বর্তমানে ড্রাইভ অফার বন্ধ আছে!</h4>
+                <p className="text-xs text-rose-600">অ্যাডমিন প্যানেল থেকে ড্রাইভ সার্ভিস সাময়িকভাবে স্থগিত রাখা হয়েছে। অনুগ্রহ করে পরবর্তীতে চেষ্টা করুন।</p>
+              </div>
+            ) : (
+              <div className="bg-white border rounded-2xl p-4 text-center text-slate-500">
+                সকল সচল ড্রাইভ প্যাক লিস্ট এখানে শো করবে...
+              </div>
+            )}
+          </div>
         )}
 
-        {currentScreen === 'drive' && (
-          <DrivePackScreenView
-            user={user}
-            onBack={goBack}
-            onBuySuccess={handleBuyDriveSuccess}
-          />
+        {/* ফ্লেক্সিলোড পেজ */}
+        {activeSection === 'flexiload' && (
+          <div className="bg-white border rounded-3xl p-4 space-y-3 shadow-sm">
+            <h4 className="font-bold text-slate-900 border-b pb-2">মোবাইল ফ্লেক্সিলোড / রিচার্জ</h4>
+            <div>
+              <label className="text-[10px] font-bold text-slate-500 block mb-1">অপারেটর সিলেক্ট করুন</label>
+              <select value={flexiOperator} onChange={(e) => setFlexiOperator(e.target.value)} className="w-full bg-slate-50 border rounded-xl p-2.5 font-bold">
+                <option value="Grameenphone">Grameenphone</option>
+                <option value="Robi">Robi</option>
+                <option value="Banglalink">Banglalink</option>
+                <option value="Airtel">Airtel</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-500 block mb-1">মোবাইল নম্বর</label>
+              <input type="tel" placeholder="017XXXXXXXX" value={flexiPhone} onChange={(e) => setFlexiPhone(e.target.value)} className="w-full bg-slate-50 border rounded-xl p-2.5 font-mono" />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-500 block mb-1">টাকার পরিমাণ (৳)</label>
+              <input type="number" placeholder="100" value={flexiAmount} onChange={(e) => setFlexiAmount(e.target.value)} className="w-full bg-slate-50 border rounded-xl p-2.5 font-mono font-bold" />
+            </div>
+            <button onClick={() => alert('রিচার্জ রিকোয়েস্ট সফলভাবে সাবমিট হয়েছে!')} className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-md">
+              রিচার্জ কনফার্ম করুন
+            </button>
+          </div>
         )}
 
-        {currentScreen === 'add_balance' && (
-          <AddBalanceScreenView
-            user={user}
-            onBack={goBack}
-            onAddBalanceSuccess={handleAddBalanceSuccess}
-          />
+        {/* নোটিফিকেশন ইনবক্স */}
+        {activeSection === 'notifications' && (
+          <div className="space-y-2.5">
+            <h4 className="font-bold text-slate-800 px-1">আপনার নোটিফিকেশন ইনবক্স</h4>
+            {notifications.map(n => (
+              <div key={n.id} className="bg-white border rounded-2xl p-3.5 space-y-1 shadow-sm">
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-slate-900">{n.title}</span>
+                  <span className="text-[9px] text-slate-400">{n.time}</span>
+                </div>
+                <p className="text-slate-600 text-xs">{n.msg}</p>
+              </div>
+            ))}
+          </div>
         )}
 
-        {currentScreen === 'history' && (
-          <HistoryScreenView
-            transactions={transactions}
-            onBack={goBack}
-          />
+        {/* লাইভ চ্যাট */}
+        {activeSection === 'chats' && (
+          <div className="bg-white border rounded-2xl p-3 h-[400px] flex flex-col shadow-sm">
+            <div className="border-b pb-1.5 mb-2 font-bold flex items-center gap-1.5">
+              <MessageSquare className="w-4 h-4 text-indigo-600" /> অ্যাডমিনের সাথে লাইভ চ্যাট
+            </div>
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+              <div className="flex justify-start">
+                <div className="max-w-[80%] bg-slate-100 text-slate-800 rounded-2xl px-3.5 py-2 text-xs">
+                  আসসালামু আলাইকুম! বলুন আপনাকে কীভাবে সাহায্য করতে পারি?
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-1.5 pt-2 border-t mt-2">
+              <input type="text" placeholder="আপনার সমস্যা লিখুন..." className="flex-1 bg-slate-50 border rounded-xl px-3 py-2 text-xs focus:outline-none" />
+              <button onClick={() => alert('মেসেজ পাঠানো হয়েছে!')} className="p-2.5 bg-indigo-600 text-white rounded-xl">
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
         )}
       </main>
 
-      {/* Modals */}
-      {isTransferModalOpen && (
-        <TransferModal
-          user={user}
-          onClose={() => setIsTransferModalOpen(false)}
-          onTransferSuccess={handleTransferSuccess}
-        />
-      )}
-
-      {isNotificationsOpen && (
-        <NotificationsModal onClose={() => setIsNotificationsOpen(false)} />
-      )}
-
-      {/* Exit Confirmation Dialog */}
-      {showExitConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-xs bg-white rounded-2xl p-5 shadow-2xl text-center flex flex-col items-center">
-            <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-3">
-              <AlertTriangle className="w-6 h-6" />
-            </div>
-            <h3 className="text-base font-bold text-slate-900 mb-1">Exit App?</h3>
-            <p className="text-xs text-slate-500 mb-5">
-              Are you sure you want to exit the application?
-            </p>
-            <div className="grid grid-cols-2 gap-3 w-full">
-              <button
-                onClick={() => setShowExitConfirm(false)}
-                className="w-full py-2.5 rounded-xl border border-slate-300 text-slate-700 font-semibold text-sm hover:bg-slate-100 active:scale-95 transition-all"
-              >
-                No
-              </button>
-              <button
-                onClick={() => CapApp.exitApp()}
-                className="w-full py-2.5 rounded-xl bg-red-600 text-white font-semibold text-sm hover:bg-red-700 active:scale-95 transition-all shadow-md shadow-red-200"
-              >
-                Yes
-              </button>
-            </div>
+      {/* পপ-আপ অ্যালার্ট */}
+      {popupAlert && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-5 max-w-xs w-full text-center space-y-3 shadow-2xl">
+            <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto"><Check className="w-5 h-5 stroke-[3]" /></div>
+            <h4 className="text-xs font-extrabold text-slate-900">{popupAlert}</h4>
+            <button onClick={() => setPopupAlert(null)} className="w-full py-2 bg-indigo-600 text-white font-bold text-xs rounded-xl">ঠিক আছে</button>
           </div>
         </div>
       )}
     </div>
   );
-}
+        }
