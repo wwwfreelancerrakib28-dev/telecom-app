@@ -13,12 +13,15 @@ import {
   Copy, 
   Check, 
   XCircle,
-  Radio
+  Smartphone,
+  Info,
+  User as UserIcon,
+  ShieldCheck
 } from 'lucide-react';
 
 export default function UserApp() {
   const [isLoggedIn, setIsLoggedIn] = useState(true);
-  const [activeSection, setActiveSection] = useState<'menu' | 'flexiload' | 'drive' | 'scratch' | 'add_balance' | 'history' | 'chats' | 'notifications'>('menu');
+  const [activeSection, setActiveSection] = useState<'menu' | 'flexiload' | 'drive' | 'scratch' | 'add_balance' | 'history' | 'chats' | 'notifications' | 'profile'>('menu');
   
   const [userProfile, setUserProfile] = useState({
     name: 'Md. Tanvir Hasan',
@@ -27,42 +30,41 @@ export default function UserApp() {
     driveBalance: 3820
   });
 
-  const [runningNotice] = useState('🎉 স্বাগতম SIM OFFER SHOP এ! ড্রাইভ প্যাক কেনার আগে সিমের ইমার্জেন্সি ব্যালেন্স চেক করে নিন।');
+  const [runningNotice] = useState('🎉 স্বাগতম SIM OFFER SHOP এ! আপনার প্রোফাইলে এখন ব্যালেন্স ও হিস্ট্রি একসাথে দেখতে পাবেন।');
 
   const [notifications, setNotifications] = useState([
-    { id: '1', title: 'স্বাগতম!', msg: 'আপনার অ্যাকাউন্ট সফলভাবে ভেরিফাই হয়েছে।', time: '10:30 AM', read: false },
-    { id: '2', title: 'ড্রাইভ অফার', msg: 'আজ জিপি এবং রবি সিমে আকর্ষণীয় ক্যাশব্যাক অফার চলছে!', time: 'Yesterday', read: true }
+    { id: '1', title: 'স্বাগতম!', msg: 'আপনার অ্যাকাউন্ট সফলভাবে ভেরিফাই হয়েছে।', time: '10:30 AM', read: false }
   ]);
 
-  const [paymentNumbers] = useState({
-    bkash: '01728116153',
-    nagad: '01728116153',
-    rocket: '01728116153'
-  });
+  const [paymentNumbers] = useState({ bkash: '01728116153', nagad: '01728116153', rocket: '01728116153' });
   const [addMoneyEnabled] = useState(true);
-
   const [selectedMethod, setSelectedMethod] = useState('bKash');
   const [balanceType, setBalanceType] = useState('main');
   const [addAmount, setAddAmount] = useState('');
   const [trxId, setTrxId] = useState('');
 
+  // ইউজারের লেনদেন হিস্ট্রি স্টেট
+  const [historyTab, setHistoryTab] = useState<'add_money' | 'flexiload' | 'drive'>('add_money');
+  const [userAddMoneyLogs, setUserAddMoneyLogs] = useState([
+    { id: 'AM-101', method: 'bKash', amount: 1000, type: 'main', trxId: 'BK990011', time: 'Today, 10:30 AM', status: 'Approved' }
+  ]);
+  const [userFlexiLogs, setUserFlexiLogs] = useState([
+    { id: 'FLX-201', operator: 'Grameenphone', amount: 200, number: '01711223344', simType: 'Prepaid', time: 'Today, 11:00 AM', status: 'Completed' }
+  ]);
+  const [userDriveLogs, setUserDriveLogs] = useState([
+    { id: 'DRV-301', operator: 'Grameenphone', title: '30 GB + 700 Min', price: 580, number: '01711223344', time: 'Yesterday', status: 'Completed' }
+  ]);
+
   const [driveServiceEnabled] = useState(true);
   const [operatorStatus] = useState<Record<string, boolean>>({
-    Grameenphone: true,
-    Robi: true,
-    Banglalink: true,
-    Airtel: true,
-    Teletalk: true
+    Grameenphone: true, Robi: true, Banglalink: true, Airtel: true, Teletalk: true
   });
 
   const [selectedDriveOp, setSelectedDriveOp] = useState('Grameenphone');
   const [driveOffers] = useState([
-    { id: '1', operator: 'Grameenphone', title: '30 GB + 700 Min (30 Days)', price: 580, cashback: 119, note: 'ঢাকা ও চট্টগ্রাম বিভাগ পাবে' },
-    { id: '2', operator: 'Grameenphone', title: '50 GB Internet (30 Days)', price: 499, cashback: 80, note: 'অল বাংলাদেশ পাবে' },
-    { id: '3', operator: 'Robi', title: '50 GB + 1000 Min (30 Days)', price: 750, cashback: 149, note: 'সকল গ্রাহক পাবে' },
-    { id: '4', operator: 'Banglalink', title: '40 GB + 800 Min (30 Days)', price: 620, cashback: 110, note: 'সারাদেশে সচল' },
-    { id: '5', operator: 'Airtel', title: '35 GB + 650 Min (30 Days)', price: 540, cashback: 90, note: 'অল বাংলাদেশ' },
-    { id: '6', operator: 'Teletalk', title: '25 GB + 500 Min (30 Days)', price: 399, cashback: 70, note: 'টেলিটক স্পেশাল প্যাক' }
+    { id: '1', operator: 'Grameenphone', title: '30 GB + 700 Min (30 Days)', price: 580, cashback: 119, note: 'ঢাকা ও চট্টগ্রাম' },
+    { id: '2', operator: 'Robi', title: '50 GB + 1000 Min (30 Days)', price: 750, cashback: 149, note: 'সকল গ্রাহক' },
+    { id: '3', operator: 'Teletalk', title: '25 GB + 500 Min (30 Days)', price: 399, cashback: 70, note: 'টেলিটক প্যাক' }
   ]);
 
   const [orderingOffer, setOrderingOffer] = useState<any | null>(null);
@@ -70,8 +72,7 @@ export default function UserApp() {
   const [hasSimLoan, setHasSimLoan] = useState<boolean | null>(null);
 
   const [scratchCards] = useState([
-    { id: 'SC-1', type: 'Minute', title: '৫০ মিনিট প্যাক', price: 30, pin: '*123*88493021#' },
-    { id: 'SC-2', type: 'Internet', title: '১ জিবি এমবি প্যাক', price: 25, pin: '*567*99201934#' }
+    { id: 'SC-1', type: 'Minute', title: '৫০ মিনিট প্যাক', price: 30, pin: '*123*88493021#' }
   ]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [popupAlert, setPopupAlert] = useState<string | null>(null);
@@ -79,88 +80,89 @@ export default function UserApp() {
   const handleCopyPin = (pin: string, id: string) => {
     navigator.clipboard.writeText(pin);
     setCopiedId(id);
-    setPopupAlert('🎉 আপনার স্ক্র্যাচ কার্ডের নম্বরটি কপি হয়েছে! ডায়াল করে উপভোগ করুন।');
-    setTimeout(() => {
-      setCopiedId(null);
-      setPopupAlert(null);
-    }, 3500);
+    setPopupAlert('🎉 পিন কপি হয়েছে!');
+    setTimeout(() => { setCopiedId(null); setPopupAlert(null); }, 3000);
   };
 
   const handleCopyPaymentNumber = (num: string, id: string) => {
     navigator.clipboard.writeText(num);
     setCopiedId(id);
-    setPopupAlert('🎉 পেমেন্ট নম্বর কপি করা হয়েছে!');
-    setTimeout(() => {
-      setCopiedId(null);
-      setPopupAlert(null);
-    }, 2500);
+    setTimeout(() => setCopiedId(null), 2500);
   };
 
-  const [flexiOperator, setFlexiOperator] = useState('Grameenphone');
-  const [flexiAmount, setFlexiAmount] = useState('');
-  const [flexiPhone, setFlexiPhone] = useState('');
-
   const handleConfirmDriveOrder = () => {
-    if (!targetDriveNumber || targetDriveNumber.length < 11) {
-      alert('সঠিক ১১ ডিজিটের মোবাইল নম্বর লিখুন!');
-      return;
-    }
-    if (hasSimLoan === null) {
-      alert('সিমটিতে লোন আছে কি নেই নির্বাচন করুন!');
-      return;
-    }
-    if (hasSimLoan === true) {
-      alert('⚠️ এই নম্বরে লোন আছে! লোন থাকা অবস্থায় ড্রাইভ রিকোয়েস্ট গ্রহণ করা হবে না।');
-      return;
-    }
-    if (userProfile.driveBalance < orderingOffer.price) {
-      alert('আপনার ড্রাইভ ব্যালেন্সে পর্যাপ্ত টাকা নেই!');
-      return;
-    }
+    if (!targetDriveNumber || targetDriveNumber.length < 11) return alert('সঠিক ১১ ডিজিট নম্বর লিখুন!');
+    if (hasSimLoan === null) return alert('লোন আছে কি না সিলেক্ট করুন!');
+    if (hasSimLoan === true) return alert('⚠️ লোন থাকা অবস্থায় ড্রাইভ নেওয়া যাবে না!');
+    if (userProfile.driveBalance < orderingOffer.price) return alert('ড্রাইভ ব্যালেন্স পর্যাপ্ত নয়!');
 
     setUserProfile(prev => ({ ...prev, driveBalance: prev.driveBalance - orderingOffer.price }));
-    setPopupAlert(`🎉 আপনার ড্রাইভ অর্ডার সফলভাবে পাঠানো হয়েছে!`);
+    setUserDriveLogs(prev => [
+      { id: 'DRV-' + Date.now(), operator: orderingOffer.operator, title: orderingOffer.title, price: orderingOffer.price, number: targetDriveNumber, time: 'Just now', status: 'Pending' },
+      ...prev
+    ]);
+
+    setPopupAlert('🎉 আপনার ড্রাইভ অর্ডার সফলভাবে পাঠানো হয়েছে!');
     setOrderingOffer(null);
     setTargetDriveNumber('');
     setHasSimLoan(null);
   };
 
   const handleAddBalanceSubmit = () => {
-    if (!addAmount || Number(addAmount) <= 0) {
-      alert('সঠিক টাকার পরিমাণ লিখুন!');
-      return;
-    }
-    if (!trxId || trxId.length < 5) {
-      alert('সঠিক ট্রানজ্যাকশন আইডি (TrxID) লিখুন!');
-      return;
-    }
+    if (!addAmount || Number(addAmount) <= 0) return alert('সঠিক টাকার পরিমাণ লিখুন!');
+    if (!trxId || trxId.length < 5) return alert('সঠিক ট্রানজ্যাকশন আইডি (TrxID) লিখুন!');
 
-    setPopupAlert(`🎉 আপনার এড-মানি রিকোয়েস্ট সফলভাবে জমা হয়েছে।`);
+    setUserAddMoneyLogs(prev => [
+      { id: 'AM-' + Date.now(), method: selectedMethod, amount: Number(addAmount), type: balanceType, trxId: trxId.toUpperCase(), time: 'Just now', status: 'Pending' },
+      ...prev
+    ]);
+
+    setPopupAlert('🎉 আপনার এড-মানি রিকোয়েস্ট সফলভাবে জমা হয়েছে!');
     setAddAmount('');
     setTrxId('');
   };
 
+  const [flexiPhone, setFlexiPhone] = useState('');
+  const [flexiOperator, setFlexiOperator] = useState('Grameenphone');
+  const [simType, setSimType] = useState('Prepaid');
+  const [flexiAmount, setFlexiAmount] = useState('');
+
+  const handlePhoneChange = (val: string) => {
+    setFlexiPhone(val);
+    if (val.startsWith('017') || val.startsWith('013')) setFlexiOperator('Grameenphone');
+    else if (val.startsWith('018')) setFlexiOperator('Robi');
+    else if (val.startsWith('019') || val.startsWith('014')) setFlexiOperator('Banglalink');
+    else if (val.startsWith('016')) setFlexiOperator('Airtel');
+    else if (val.startsWith('015')) setFlexiOperator('Teletalk');
+  };
+
+  const handleFlexiSubmit = () => {
+    if (!flexiPhone || flexiPhone.length < 11) return alert('সঠিক ১১ ডিজিট নম্বর লিখুন!');
+    if (!flexiAmount || Number(flexiAmount) <= 0) return alert('সঠিক টাকার পরিমাণ লিখুন!');
+    if (userProfile.mainBalance < Number(flexiAmount)) return alert('মেইন ব্যালেন্সে পর্যাপ্ত টাকা নেই!');
+
+    setUserProfile(prev => ({ ...prev, mainBalance: prev.mainBalance - Number(flexiAmount) }));
+    setUserFlexiLogs(prev => [
+      { id: 'FLX-' + Date.now(), operator: flexiOperator, amount: Number(flexiAmount), number: flexiPhone, simType, time: 'Just now', status: 'Pending' },
+      ...prev
+    ]);
+
+    setPopupAlert('🎉 ফ্লেক্সিলোড রিকোয়েস্ট সফলভাবে জমা হয়েছে!');
+    setFlexiPhone('');
+    setFlexiAmount('');
+  };
+
   const handleBack = () => {
-    if (orderingOffer) {
-      setOrderingOffer(null);
-      setTargetDriveNumber('');
-      setHasSimLoan(null);
-    } else if (activeSection !== 'menu') {
-      setActiveSection('menu');
-    }
+    if (orderingOffer) setOrderingOffer(null);
+    else if (activeSection !== 'menu') setActiveSection('menu');
   };
 
   useEffect(() => {
     const backListener = CapacitorApp.addListener('backButton', () => {
-      if (orderingOffer || activeSection !== 'menu') {
-        handleBack();
-      } else {
-        CapacitorApp.exitApp();
-      }
+      if (orderingOffer || activeSection !== 'menu') handleBack();
+      else CapacitorApp.exitApp();
     });
-    return () => {
-      backListener.then(handler => handler.remove());
-    };
+    return () => { backListener.then(h => h.remove()); };
   }, [orderingOffer, activeSection]);
 
   const visibleOffers = driveOffers.filter(o => o.operator === selectedDriveOp);
@@ -174,9 +176,9 @@ export default function UserApp() {
               <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
             </button>
           ) : (
-            <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-black text-sm shadow-md">
+            <button onClick={() => setActiveSection('profile')} className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-black text-sm shadow-md active:scale-95" title="প্রোফাইল">
               {userProfile.name.charAt(0)}
-            </div>
+            </button>
           )}
           <div>
             <h2 className="text-xs font-black text-slate-900 leading-tight">{userProfile.name}</h2>
@@ -185,19 +187,13 @@ export default function UserApp() {
         </div>
 
         <div className="flex items-center gap-2">
-          <button 
-            onClick={() => setActiveSection('notifications')} 
-            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 relative active:scale-95"
-          >
-            <Bell className="w-4 h-4" />
-            {notifications.some(n => !n.read) && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-600 rounded-full animate-pulse" />
-            )}
+          <button onClick={() => setActiveSection('profile')} className="p-2 rounded-xl bg-indigo-50 text-indigo-600 font-bold active:scale-95 flex items-center gap-1">
+            <UserIcon className="w-4 h-4" /> প্রোফাইল
           </button>
-          <button 
-            onClick={() => setIsLoggedIn(false)} 
-            className="p-2 rounded-xl bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-700 active:scale-95"
-          >
+          <button onClick={() => setActiveSection('notifications')} className="p-2 rounded-xl bg-slate-100 text-slate-700 relative">
+            <Bell className="w-4 h-4" />
+          </button>
+          <button onClick={() => setIsLoggedIn(false)} className="p-2 rounded-xl bg-slate-100 text-slate-700">
             <LogOut className="w-4 h-4" />
           </button>
         </div>
@@ -213,14 +209,9 @@ export default function UserApp() {
           <div className="space-y-4">
             <div className="bg-gradient-to-tr from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-5 text-white shadow-xl space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider bg-white/10 px-2.5 py-1 rounded-lg">
-                  RETAILER ACCOUNT
-                </span>
-                <span className="text-xs text-emerald-400 font-bold flex items-center gap-1">
-                  <span className="w-2 h-2 bg-emerald-400 rounded-full animate-ping" /> Active
-                </span>
+                <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider bg-white/10 px-2.5 py-1 rounded-lg">RETAILER ACCOUNT</span>
+                <span className="text-xs text-emerald-400 font-bold flex items-center gap-1"><span className="w-2 h-2 bg-emerald-400 rounded-full animate-ping" /> Active</span>
               </div>
-
               <div className="grid grid-cols-2 gap-3 pt-1">
                 <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
                   <span className="text-[10px] text-slate-400 block mb-0.5">মেইন ব্যালেন্স</span>
@@ -233,189 +224,170 @@ export default function UserApp() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <div className="flex justify-between items-center px-1">
-                <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">Quick Actions</h4>
-                <span className="text-[10px] text-slate-400 font-bold">Services</span>
+            <div className="grid grid-cols-3 gap-2.5">
+              <button onClick={() => setActiveSection('flexiload')} className="bg-white border rounded-3xl p-3.5 flex flex-col items-center text-center shadow-sm active:scale-95">
+                <div className="w-11 h-11 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center mb-2"><Send className="w-5 h-5" /></div>
+                <span className="text-xs font-bold text-slate-900">Flexiload</span>
+              </button>
+              <button onClick={() => setActiveSection('drive')} className="bg-white border rounded-3xl p-3.5 flex flex-col items-center text-center shadow-sm active:scale-95">
+                <div className="w-11 h-11 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-2"><Flame className="w-5 h-5" /></div>
+                <span className="text-xs font-bold text-slate-900">Drive Pack</span>
+              </button>
+              <button onClick={() => setActiveSection('scratch')} className="bg-white border rounded-3xl p-3.5 flex flex-col items-center text-center shadow-sm active:scale-95">
+                <div className="w-11 h-11 rounded-2xl bg-pink-50 text-pink-600 flex items-center justify-center mb-2"><Ticket className="w-5 h-5" /></div>
+                <span className="text-xs font-bold text-slate-900">Scratch Card</span>
+              </button>
+              <button onClick={() => setActiveSection('add_balance')} className="bg-white border rounded-3xl p-3.5 flex flex-col items-center text-center shadow-sm active:scale-95">
+                <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-2"><Wallet className="w-5 h-5" /></div>
+                <span className="text-xs font-bold text-slate-900">Add Balance</span>
+              </button>
+              <button onClick={() => setActiveSection('history')} className="bg-white border rounded-3xl p-3.5 flex flex-col items-center text-center shadow-sm active:scale-95">
+                <div className="w-11 h-11 rounded-2xl bg-violet-50 text-violet-600 flex items-center justify-center mb-2"><History className="w-5 h-5" /></div>
+                <span className="text-xs font-bold text-slate-900">History</span>
+              </button>
+              <button onClick={() => setActiveSection('chats')} className="bg-white border rounded-3xl p-3.5 flex flex-col items-center text-center shadow-sm active:scale-95">
+                <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-2"><MessageSquare className="w-5 h-5" /></div>
+                <span className="text-xs font-bold text-slate-900">Live Chat</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* নতুন প্রোফাইল পেজ (যেখানে ইউজারের নাম, ব্যালেন্স এবং হিস্ট্রি শো করবে) */}
+        {activeSection === 'profile' && (
+          <div className="space-y-4">
+            <div className="bg-white border rounded-3xl p-5 text-center space-y-3 shadow-sm">
+              <div className="w-16 h-16 rounded-full bg-indigo-600 text-white flex items-center justify-center font-black text-2xl mx-auto shadow-md">
+                {userProfile.name.charAt(0)}
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-slate-900">{userProfile.name}</h3>
+                <p className="text-xs text-slate-500 font-mono">📱 {userProfile.phone}</p>
+                <span className="inline-block mt-1 px-2.5 py-0.5 bg-emerald-50 text-emerald-700 font-bold text-[10px] rounded-full border border-emerald-200">
+                  Verified Retailer
+                </span>
               </div>
 
-              <div className="grid grid-cols-3 gap-2.5">
-                <button
-                  onClick={() => setActiveSection('flexiload')}
-                  className="bg-white border border-slate-200/80 rounded-3xl p-3.5 flex flex-col items-center text-center shadow-sm hover:shadow-md active:scale-95 transition-all"
-                >
-                  <div className="w-11 h-11 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center mb-2">
-                    <Send className="w-5 h-5" />
-                  </div>
-                  <span className="text-xs font-bold text-slate-900">Flexiload</span>
-                  <span className="text-[9px] text-slate-400">Mobile Top-Up</span>
-                </button>
+              {/* প্রোফাইলে বর্তমান ব্যালেন্স শো করার কার্ড */}
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-center">
+                  <span className="text-[10px] text-slate-500 block mb-0.5 font-bold">মেইন ব্যালেন্স</span>
+                  <h4 className="text-base font-black font-mono text-indigo-600">৳{userProfile.mainBalance}</h4>
+                </div>
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-center">
+                  <span className="text-[10px] text-slate-500 block mb-0.5 font-bold">ড্রাইভ ব্যালেন্স</span>
+                  <h4 className="text-base font-black font-mono text-amber-600">৳{userProfile.driveBalance}</h4>
+                </div>
+              </div>
+            </div>
 
-                <button
-                  onClick={() => setActiveSection('drive')}
-                  className="bg-white border border-slate-200/80 rounded-3xl p-3.5 flex flex-col items-center text-center shadow-sm hover:shadow-md active:scale-95 transition-all relative"
-                >
-                  <span className="absolute top-2 right-2 bg-rose-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full">HOT</span>
-                  <div className="w-11 h-11 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-2">
-                    <Flame className="w-5 h-5" />
+            {/* প্রোফাইল হিসت্রি সামারি */}
+            <div className="bg-white border rounded-3xl p-4 space-y-3 shadow-sm">
+              <h4 className="font-bold text-slate-900 border-b pb-2 flex items-center gap-1.5">
+                <History className="w-4 h-4 text-violet-600" /> আপনার সাম্প্রতিক লেনদেন রিপোর্ট
+              </h4>
+              <div className="space-y-2">
+                {userFlexiLogs.slice(0, 2).map(flx => (
+                  <div key={flx.id} className="bg-slate-50 border rounded-2xl p-3 flex justify-between items-center text-xs">
+                    <div>
+                      <p className="font-bold text-slate-900">রিচার্জ: ৳{flx.amount} ({flx.operator})</p>
+                      <p className="text-[10px] text-slate-500 font-mono">নম্বর: {flx.number}</p>
+                    </div>
+                    <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded">{flx.status}</span>
                   </div>
-                  <span className="text-xs font-bold text-slate-900">Drive Pack</span>
-                  <span className="text-[9px] text-slate-400">Data & Minutes</span>
-                </button>
-
-                <button
-                  onClick={() => setActiveSection('scratch')}
-                  className="bg-white border border-slate-200/80 rounded-3xl p-3.5 flex flex-col items-center text-center shadow-sm hover:shadow-md active:scale-95 transition-all"
-                >
-                  <div className="w-11 h-11 rounded-2xl bg-pink-50 text-pink-600 flex items-center justify-center mb-2">
-                    <Ticket className="w-5 h-5" />
+                ))}
+                {userDriveLogs.slice(0, 2).map(drv => (
+                  <div key={drv.id} className="bg-slate-50 border rounded-2xl p-3 flex justify-between items-center text-xs">
+                    <div>
+                      <p className="font-bold text-slate-900">ড্রাইভ: {drv.title} (৳{drv.price})</p>
+                      <p className="text-[10px] text-slate-500 font-mono">নম্বর: {drv.number}</p>
+                    </div>
+                    <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded">{drv.status}</span>
                   </div>
-                  <span className="text-xs font-bold text-slate-900">Scratch Card</span>
-                  <span className="text-[9px] text-slate-400">Minute / MB</span>
-                </button>
-
-                <button
-                  onClick={() => setActiveSection('add_balance')}
-                  className="bg-white border border-slate-200/80 rounded-3xl p-3.5 flex flex-col items-center text-center shadow-sm hover:shadow-md active:scale-95 transition-all"
-                >
-                  <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-2">
-                    <Wallet className="w-5 h-5" />
-                  </div>
-                  <span className="text-xs font-bold text-slate-900">Add Balance</span>
-                  <span className="text-[9px] text-slate-400">bKash / Nagad</span>
-                </button>
-
-                <button
-                  onClick={() => setActiveSection('history')}
-                  className="bg-white border border-slate-200/80 rounded-3xl p-3.5 flex flex-col items-center text-center shadow-sm hover:shadow-md active:scale-95 transition-all"
-                >
-                  <div className="w-11 h-11 rounded-2xl bg-violet-50 text-violet-600 flex items-center justify-center mb-2">
-                    <History className="w-5 h-5" />
-                  </div>
-                  <span className="text-xs font-bold text-slate-900">History</span>
-                  <span className="text-[9px] text-slate-400">All Reports</span>
-                </button>
-
-                <button
-                  onClick={() => setActiveSection('chats')}
-                  className="bg-white border border-slate-200/80 rounded-3xl p-3.5 flex flex-col items-center text-center shadow-sm hover:shadow-md active:scale-95 transition-all"
-                >
-                  <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-2">
-                    <MessageSquare className="w-5 h-5" />
-                  </div>
-                  <span className="text-xs font-bold text-slate-900">Live Chat</span>
-                  <span className="text-[9px] text-slate-400">Instant Help</span>
-                </button>
+                ))}
               </div>
             </div>
           </div>
         )}
 
+        {/* এড ব্যালেন্স পেজ */}
         {activeSection === 'add_balance' && (
           <div className="space-y-3.5">
-            {!addMoneyEnabled ? (
-              <div className="bg-rose-50 border border-rose-200 rounded-3xl p-6 text-center space-y-2 shadow-sm">
-                <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto">
-                  <XCircle className="w-6 h-6" />
-                </div>
-                <h4 className="text-sm font-black text-rose-900">বর্তমানে এড ব্যালেন্স সার্ভিস বন্ধ আছে!</h4>
+            <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-3.5 space-y-1.5 shadow-sm">
+              <div className="flex items-center gap-1.5 text-indigo-900 font-extrabold text-xs">
+                <Info className="w-4 h-4 text-indigo-600 shrink-0" />
+                <span>টাকা অ্যাড করার নিয়ম:</span>
               </div>
-            ) : (
-              <div className="space-y-3.5">
-                <div className="bg-white border rounded-3xl p-4 space-y-3 shadow-sm">
-                  <h4 className="font-bold text-slate-900 border-b pb-2 flex items-center gap-1.5">
-                    <Wallet className="w-4 h-4 text-emerald-600" /> টাকা অ্যাড করুন (Add Balance)
-                  </h4>
+              <p className="text-[11px] text-indigo-800 leading-relaxed pl-5">
+                প্রথমে অ্যাডমিনের দেওয়া নাম্বারটি কপি করে আপনার বিকাশ/নগদ থেকে টাকা পাঠান। এরপর ট্রানজেকশন আইডি (TrxID) ও কত টাকা পাঠিয়েছেন তা এখানে লিখে নিচে কনফার্ম করুন।
+              </p>
+            </div>
 
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 block mb-1">পেমেন্ট মাধ্যম সিলেক্ট করুন</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {['bKash', 'Nagad', 'Rocket'].map((m) => (
-                        <button
-                          key={m}
-                          onClick={() => setSelectedMethod(m)}
-                          className={`py-2.5 rounded-2xl font-bold text-xs border transition-all ${
-                            selectedMethod === m ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-slate-50 text-slate-700 border-slate-200'
-                          }`}
-                        >
-                          {m}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+            <div className="bg-white border rounded-3xl p-4 space-y-3 shadow-sm">
+              <h4 className="font-bold text-slate-900 border-b pb-2 flex items-center gap-1.5">
+                <Wallet className="w-4 h-4 text-emerald-600" /> টাকা অ্যাড করুন (Add Balance)
+              </h4>
 
-                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-1.5">
-                    <p className="text-[11px] text-slate-600 font-semibold">
-                      এই <span className="text-indigo-600 font-bold">{selectedMethod}</span> নম্বরে টাকা পাঠান:
-                    </p>
-                    <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl p-2.5">
-                      <span className="font-mono text-indigo-700 font-black text-sm">
-                        {selectedMethod === 'bKash' ? paymentNumbers.bkash : selectedMethod === 'Nagad' ? paymentNumbers.nagad : paymentNumbers.rocket}
-                      </span>
-                      <button
-                        onClick={() => handleCopyPaymentNumber(
-                          selectedMethod === 'bKash' ? paymentNumbers.bkash : selectedMethod === 'Nagad' ? paymentNumbers.nagad : paymentNumbers.rocket,
-                          'pay-num'
-                        )}
-                        className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg text-[10px] font-bold flex items-center gap-1 active:scale-95"
-                      >
-                        {copiedId === 'pay-num' ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
-                        <span>{copiedId === 'pay-num' ? 'কপি!' : 'নম্বর কপি'}</span>
-                      </button>
-                    </div>
-                  </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 block mb-1">পেমেন্ট মাধ্যম সিলেক্ট করুন</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {['bKash', 'Nagad', 'Rocket'].map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setSelectedMethod(m)}
+                      className={`py-2.5 rounded-2xl font-bold text-xs border transition-all ${
+                        selectedMethod === m ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-slate-50 text-slate-700 border-slate-200'
+                      }`}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 block mb-1">কোন ব্যালেন্সে এড করতে চান?</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setBalanceType('main')}
-                        className={`py-2 rounded-xl font-bold text-xs ${balanceType === 'main' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-slate-50 border text-slate-600'}`}
-                      >
-                        মেইন ব্যালেন্স
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setBalanceType('drive')}
-                        className={`py-2 rounded-xl font-bold text-xs ${balanceType === 'drive' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-slate-50 border text-slate-600'}`}
-                      >
-                        ড্রাইভ ব্যালেন্স
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 block mb-1">টাকার পরিমাণ (৳)</label>
-                    <input
-                      type="number"
-                      placeholder="যেমন: 500"
-                      value={addAmount}
-                      onChange={(e) => setAddAmount(e.target.value)}
-                      className="w-full bg-slate-50 border rounded-xl p-2.5 text-xs font-mono font-bold"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 block mb-1">ট্রানজ্যাকশন আইডি (TrxID)</label>
-                    <input
-                      type="text"
-                      placeholder="যেমন: BK990011"
-                      value={trxId}
-                      onChange={(e) => setTrxId(e.target.value)}
-                      className="w-full bg-slate-50 border rounded-xl p-2.5 text-xs font-mono font-bold uppercase"
-                    />
-                  </div>
-
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-1.5">
+                <p className="text-[11px] text-slate-600 font-semibold">
+                  এই <span className="text-indigo-600 font-bold">{selectedMethod}</span> নম্বরে টাকা পাঠান:
+                </p>
+                <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl p-2.5">
+                  <span className="font-mono text-indigo-700 font-black text-sm">
+                    {selectedMethod === 'bKash' ? paymentNumbers.bkash : selectedMethod === 'Nagad' ? paymentNumbers.nagad : paymentNumbers.rocket}
+                  </span>
                   <button
-                    onClick={handleAddBalanceSubmit}
-                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md active:scale-95 transition-all"
+                    onClick={() => handleCopyPaymentNumber(
+                      selectedMethod === 'bKash' ? paymentNumbers.bkash : selectedMethod === 'Nagad' ? paymentNumbers.nagad : paymentNumbers.rocket,
+                      'pay-num'
+                    )}
+                    className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg text-[10px] font-bold flex items-center gap-1 active:scale-95"
                   >
-                    পেমেন্ট সাবমিট করুন
+                    {copiedId === 'pay-num' ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                    <span>{copiedId === 'pay-num' ? 'কপি!' : 'নম্বর কপি'}</span>
                   </button>
                 </div>
               </div>
-            )}
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 block mb-1">কোন ব্যালেন্সে এড করতে চান?</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" onClick={() => setBalanceType('main')} className={`py-2 rounded-xl font-bold text-xs ${balanceType === 'main' ? 'bg-indigo-50 text-indigo-700 border' : 'bg-slate-50 border'}`}>মেইন ব্যালেন্স</button>
+                  <button type="button" onClick={() => setBalanceType('drive')} className={`py-2 rounded-xl font-bold text-xs ${balanceType === 'drive' ? 'bg-amber-50 text-amber-700 border' : 'bg-slate-50 border'}`}>ড্রাইভ ব্যালেন্স</button>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 block mb-1">টাকার পরিমাণ (৳)</label>
+                <input type="number" placeholder="যেমন: 500" value={addAmount} onChange={(e) => setAddAmount(e.target.value)} className="w-full bg-slate-50 border rounded-xl p-2.5 text-xs font-mono font-bold" />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 block mb-1">ট্রানজ্যাকশন আইডি (TrxID)</label>
+                <input type="text" placeholder="যেমন: BK990011" value={trxId} onChange={(e) => setTrxId(e.target.value)} className="w-full bg-slate-50 border rounded-xl p-2.5 text-xs font-mono font-bold uppercase" />
+              </div>
+
+              <button onClick={handleAddBalanceSubmit} className="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl shadow-md">
+                পেমেন্ট সাবমিট করুন
+              </button>
+            </div>
           </div>
         )}
 
@@ -485,58 +457,138 @@ export default function UserApp() {
 
         {activeSection === 'scratch' && (
           <div className="space-y-3">
-            <h4 className="font-bold text-slate-800 px-1">আপনার কেনা স্ক্র্যাচ কার্ডসমূহ</h4>
             {scratchCards.map((card) => (
-              <div key={card.id} className="bg-white border rounded-2xl p-4 space-y-2 shadow-sm">
-                <div className="flex justify-between items-center">
-                  <span className="font-bold text-slate-900 text-sm">{card.title}</span>
-                  <span className="text-xs font-mono font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">৳{card.price}</span>
-                </div>
-                <div className="bg-slate-50 border rounded-xl p-2.5 flex justify-between items-center">
-                  <span className="font-mono text-indigo-700 font-bold text-sm">{card.pin}</span>
-                  <button onClick={() => handleCopyPin(card.pin, card.id)} className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-bold flex items-center gap-1">
-                    <Copy className="w-3.5 h-3.5" /> কপি
-                  </button>
-                </div>
+              <div key={card.id} className="bg-white border rounded-2xl p-4 flex justify-between items-center shadow-sm">
+                <span>{card.title} - ৳{card.price}</span>
+                <button onClick={() => handleCopyPin(card.pin, card.id)} className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-bold">কপি পিন</button>
               </div>
             ))}
           </div>
         )}
 
         {activeSection === 'flexiload' && (
-          <div className="bg-white border rounded-3xl p-4 space-y-3 shadow-sm">
-            <h4 className="font-bold text-slate-900 border-b pb-2">মোবাইল ফ্লেক্সিলোড</h4>
+          <div className="bg-white border rounded-3xl p-4 space-y-3.5 shadow-sm">
+            <h4 className="font-bold text-slate-900 border-b pb-2">মোবাইল ফ্লেক্সিলোড / রিচার্জ</h4>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 block mb-1">অপারেটর</label>
-              <select value={flexiOperator} onChange={(e) => setFlexiOperator(e.target.value)} className="w-full bg-slate-50 border rounded-xl p-2.5 font-bold">
-                <option value="Grameenphone">Grameenphone</option>
-                <option value="Robi">Robi</option>
-                <option value="Banglalink">Banglalink</option>
-                <option value="Airtel">Airtel</option>
-                <option value="Teletalk">Teletalk</option>
-              </select>
+              <label className="text-[10px] font-bold text-slate-500 block mb-1">অপারেটর নির্বাচন করুন</label>
+              <div className="grid grid-cols-5 gap-1.5">
+                {['Grameenphone', 'Robi', 'Banglalink', 'Airtel', 'Teletalk'].map((op) => (
+                  <button
+                    key={op}
+                    onClick={() => setFlexiOperator(op)}
+                    className={`py-2 px-1 rounded-xl text-[10px] font-black border transition-all flex flex-col items-center justify-center ${
+                      flexiOperator === op ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-slate-50 text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    <span>{op === 'Grameenphone' ? 'GP' : op === 'Banglalink' ? 'BL' : op}</span>
+                  </button>
+                ))}
+              </div>
             </div>
+
             <div>
-              <label className="text-[10px] font-bold text-slate-500 block mb-1">নম্বর</label>
-              <input type="tel" placeholder="017XXXXXXXX" value={flexiPhone} onChange={(e) => setFlexiPhone(e.target.value)} className="w-full bg-slate-50 border rounded-xl p-2.5 font-mono" />
+              <label className="text-[10px] font-bold text-slate-500 block mb-1">মোবাইল নম্বর</label>
+              <div className="relative">
+                <input
+                  type="tel"
+                  maxLength={11}
+                  placeholder="017XXXXXXXX"
+                  value={flexiPhone}
+                  onChange={(e) => handlePhoneChange(e.target.value)}
+                  className="w-full bg-slate-50 border rounded-xl pl-3 pr-24 py-2.5 text-xs font-mono font-bold"
+                />
+                <div className="absolute right-2 top-2 bg-indigo-50 border border-indigo-200 text-indigo-700 px-2 py-1 rounded-lg text-[10px] font-black uppercase">
+                  {flexiOperator}
+                </div>
+              </div>
             </div>
+
             <div>
-              <label className="text-[10px] font-bold text-slate-500 block mb-1">টাকা (৳)</label>
-              <input type="number" placeholder="100" value={flexiAmount} onChange={(e) => setFlexiAmount(e.target.value)} className="w-full bg-slate-50 border rounded-xl p-2.5 font-mono font-bold" />
+              <label className="text-[10px] font-bold text-slate-500 block mb-1">সিম টাইপ সিলেক্ট করুন</label>
+              <div className="grid grid-cols-3 gap-2">
+                {['Prepaid', 'Postpaid', 'Skitto'].map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setSimType(type)}
+                    className={`py-2 rounded-xl font-bold text-xs border transition-all ${
+                      simType === type ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-slate-50 text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
             </div>
-            <button onClick={() => alert('রিচার্জ রিকোয়েস্ট সাবমিট হয়েছে!')} className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl">রিচার্জ কনফার্ম</button>
+
+            <div>
+              <label className="text-[10px] font-bold text-slate-500 block mb-1">টাকার পরিমাণ (৳)</label>
+              <input type="number" placeholder="100" value={flexiAmount} onChange={(e) => setFlexiAmount(e.target.value)} className="w-full bg-slate-50 border rounded-xl p-2.5 text-xs font-mono font-bold" />
+            </div>
+
+            <button onClick={handleFlexiSubmit} className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-md">
+              রিচার্জ কনফার্ম করুন
+            </button>
+          </div>
+        )}
+
+        {activeSection === 'history' && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-3 gap-1 bg-slate-200 p-1 rounded-xl">
+              <button onClick={() => setHistoryTab('add_money')} className={`py-1.5 rounded-lg font-bold ${historyTab === 'add_money' ? 'bg-white shadow-sm' : ''}`}>এড-মানি</button>
+              <button onClick={() => setHistoryTab('flexiload')} className={`py-1.5 rounded-lg font-bold ${historyTab === 'flexiload' ? 'bg-white shadow-sm' : ''}`}>রিচার্জ</button>
+              <button onClick={() => setHistoryTab('drive')} className={`py-1.5 rounded-lg font-bold ${historyTab === 'drive' ? 'bg-white shadow-sm' : ''}`}>ড্রাইভ</button>
+            </div>
+
+            {historyTab === 'add_money' && (
+              <div className="space-y-2">
+                {userAddMoneyLogs.map(log => (
+                  <div key={log.id} className="bg-white border rounded-xl p-3 flex justify-between items-center shadow-sm">
+                    <div>
+                      <p className="font-bold text-slate-900">৳{log.amount} ({log.method})</p>
+                      <p className="text-[10px] text-slate-500">TrxID: {log.trxId} • {log.time}</p>
+                    </div>
+                    <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-1 rounded">{log.status}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {historyTab === 'flexiload' && (
+              <div className="space-y-2">
+                {userFlexiLogs.map(flx => (
+                  <div key={flx.id} className="bg-white border rounded-xl p-3 flex justify-between items-center shadow-sm">
+                    <div>
+                      <p className="font-bold text-slate-900">{flx.operator} - ৳{flx.amount} ({flx.simType})</p>
+                      <p className="text-[10px] text-slate-500 font-mono">নম্বর: {flx.number}</p>
+                    </div>
+                    <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-1 rounded">{flx.status}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {historyTab === 'drive' && (
+              <div className="space-y-2">
+                {userDriveLogs.map(drv => (
+                  <div key={drv.id} className="bg-white border rounded-xl p-3 flex justify-between items-center shadow-sm">
+                    <div>
+                      <p className="font-bold text-slate-900">{drv.operator} - {drv.title} (৳{drv.price})</p>
+                      <p className="text-[10px] text-slate-500 font-mono">নম্বর: {drv.number}</p>
+                    </div>
+                    <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-1 rounded">{drv.status}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
         {activeSection === 'notifications' && (
           <div className="space-y-2.5">
-            <h4 className="font-bold text-slate-800 px-1">নোটিফিকেশন ইনবক্স</h4>
             {notifications.map(n => (
-              <div key={n.id} className="bg-white border rounded-2xl p-3.5 space-y-1 shadow-sm">
-                <div className="flex justify-between items-center">
-                  <span className="font-bold text-slate-900">{n.title}</span>
-                  <span className="text-[9px] text-slate-400">{n.time}</span>
-                </div>
+              <div key={n.id} className="bg-white border rounded-2xl p-3.5 shadow-sm">
+                <h5 className="font-bold">{n.title}</h5>
                 <p className="text-slate-600 text-xs">{n.msg}</p>
               </div>
             ))}
@@ -544,25 +596,13 @@ export default function UserApp() {
         )}
 
         {activeSection === 'chats' && (
-          <div className="bg-white border rounded-2xl p-3 h-[400px] flex flex-col shadow-sm">
+          <div className="bg-white border rounded-2xl p-3 h-[380px] flex flex-col shadow-sm">
             <div className="border-b pb-1.5 mb-2 font-bold">অ্যাডমিনের সাথে লাইভ চ্যাট</div>
-            <div className="flex-1 overflow-y-auto space-y-2">
-              <div className="flex justify-start">
-                <div className="max-w-[80%] bg-slate-100 text-slate-800 rounded-2xl px-3.5 py-2 text-xs">
-                  আসসালামু আলাইকুম! বলুন আপনাকে কীভাবে সাহায্য করতে পারি?
-                </div>
-              </div>
+            <div className="flex-1 overflow-y-auto">আসসালামু আলাইকুম!</div>
+            <div className="flex gap-1.5 pt-2 border-t">
+              <input type="text" placeholder="মেসেজ..." className="flex-1 bg-slate-50 border rounded-xl px-3 py-1.5 text-xs" />
+              <button onClick={() => alert('sent')} className="p-2 bg-indigo-600 text-white rounded-xl"><Send className="w-3.5 h-3.5" /></button>
             </div>
-            <div className="flex gap-1.5 pt-2 border-t mt-2">
-              <input type="text" placeholder="সমস্যা লিখুন..." className="flex-1 bg-slate-50 border rounded-xl px-3 py-2 text-xs" />
-              <button onClick={() => alert('মেসেজ পাঠানো হয়েছে!')} className="p-2.5 bg-indigo-600 text-white rounded-xl"><Send className="w-4 h-4" /></button>
-            </div>
-          </div>
-        )}
-
-        {activeSection === 'history' && (
-          <div className="bg-white border rounded-3xl p-6 text-center text-slate-400 shadow-sm">
-            আপনার সকল লেনদেনের রিপোর্ট এখানে সংরক্ষিত আছে।
           </div>
         )}
       </main>
@@ -578,4 +618,4 @@ export default function UserApp() {
       )}
     </div>
   );
-  }
+    }
