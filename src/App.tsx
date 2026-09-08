@@ -22,14 +22,14 @@ export default function App() {
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // নতুন স্ক্রিনে যাওয়ার হ্যান্ডলার
+  // নতুন স্ক্রিনে যাওয়ার হ্যান্ডলার
   const navigateTo = (screen: ScreenId) => {
     if (screen === currentScreen) return;
     setHistoryStack((prev) => [...prev, screen]);
     setCurrentScreen(screen);
   };
 
-  // একটি পেজ পেছনে যাওয়ার হ্যান্ডলার
+  // একটি পেজ পেছনে যাওয়ার হ্যান্ডলার
   const goBack = () => {
     if (historyStack.length > 1) {
       const newStack = [...historyStack];
@@ -220,10 +220,11 @@ export default function App() {
         {currentScreen === 'auth' && (
           <AuthScreenView
             user={user}
-            onLoginSuccess={() => {
+            onLoginSuccess={(updatedUser) => {
+              if (updatedUser) setUser(updatedUser);
               setHistoryStack(['home']);
               setCurrentScreen('home');
-              showToast('Authenticated successfully with Biometric PIN!');
+              showToast('Login Successful!');
             }}
           />
         )}
