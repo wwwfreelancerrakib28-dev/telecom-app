@@ -25,12 +25,14 @@ import {
   Lock,
   ShoppingCart,
   AlertCircle,
-  Clock
+  Clock,
+  Key,
+  HelpCircle
 } from 'lucide-react';
 
 export default function UserApp() {
   const [isLoggedIn, setIsLoggedIn] = useState(true);
-  const [activeSection, setActiveSection] = useState<'menu' | 'flexiload' | 'drive' | 'scratch' | 'add_balance' | 'history' | 'chats' | 'notifications' | 'profile'>('menu');
+  const [activeSection, setActiveSection] = useState<'menu' | 'flexiload' | 'drive' | 'scratch' | 'add_balance' | 'history' | 'chats' | 'notifications' | 'profile' | 'support'>('menu');
   
   const [userProfile, setUserProfile] = useState({
     id: '1',
@@ -48,6 +50,8 @@ export default function UserApp() {
 
   const [showPhone, setShowPhone] = useState(false);
   const [showPin, setShowPin] = useState(false);
+  const [oldPinInput, setOldPinInput] = useState('');
+  const [newPinInput, setNewPinInput] = useState('');
 
   const [runningNotice, setRunningNotice] = useState('🎉 স্বাগতম SIM OFFER SHOP এ!');
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -168,6 +172,17 @@ export default function UserApp() {
     });
   }, []);
 
+  const handleUpdatePin = () => {
+    if (oldPinInput !== userProfile.pin) return alert('পুরনো পিন সঠিক নয়!');
+    if (!newPinInput || newPinInput.length < 4) return alert('নতুন পিন কমপক্ষে ৪ ডিজিটের হতে হবে!');
+    
+    update(ref(db, `users/${userProfile.id}`), { pin: newPinInput });
+    setUserProfile(prev => ({ ...prev, pin: newPinInput }));
+    setOldPinInput('');
+    setNewPinInput('');
+    alert('✅ পিন সফলভাবে পরিবর্তন করা হয়েছে!');
+  };
+
   const handleConfirmBuyCard = () => {
     if (!buyingCard) return;
     if (!targetCardNumber || targetCardNumber.length < 11) return alert('সঠিক ১১ ডিজিট নম্বর লিখুন!');
@@ -278,6 +293,20 @@ export default function UserApp() {
     setChatInput('');
   };
 
+  // মোবাইলের ফিজিক্যাল ব্যাক বাটন হ্যান্ডলার
+  useEffect(() => {
+    const backListener = CapacitorApp.addListener('backButton', () => {
+      if (orderingOffer || buyingCard || activeSection !== 'menu') {
+        if (orderingOffer) setOrderingOffer(null);
+        else if (buyingCard) setBuyingCard(null);
+        else setActiveSection('menu');
+      } else {
+        CapacitorApp.exitApp();
+      }
+    });
+    return () => { backListener.then(h => h.remove()); };
+  }, [orderingOffer, buyingCard, activeSection]);
+
   const visibleOffers = driveOffers.filter(o => o.operator === selectedDriveOp);
 
   return (
@@ -291,10 +320,13 @@ export default function UserApp() {
           )}
           <div>
             <h2 className="text-xs font-black text-slate-900 leading-tight">{userProfile.name}</h2>
-            <p className="text-[10px] text-slate-500 font-mono">{showPhone ? userProfile.phone : '01712-******'}</p>
+            <p className="text-[10px] text-slate-500 font-mono">{userProfile.phone}</p>
           </div>
         </div>
-        <button onClick={() => setActiveSection('profile')} className="p-2 rounded-xl bg-indigo-50 text-indigo-600 font-bold flex items-center gap-1"><UserIcon className="w-4 h-4" /> প্রোফাইল</button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setActiveSection('support')} className="p-2 rounded-xl bg-emerald-50 text-emerald-600 font-bold flex items-center gap-1"><HelpCircle className="w-4 h-4" /> সাপোর্ট</button>
+          <button onClick={() => setActiveSection('profile')} className="p-2 rounded-xl bg-indigo-50 text-indigo-600 font-bold flex items-center gap-1"><UserIcon className="w-4 h-4" /> প্রোফাইল</button>
+        </div>
       </header>
 
       <div className="bg-amber-500 text-slate-950 px-4 py-1.5 text-[11px] font-bold overflow-hidden whitespace-nowrap shadow-inner flex items-center gap-2">
@@ -330,6 +362,59 @@ export default function UserApp() {
           </div>
         )}
 
+        {/* সাপোর্ট ও সোশ্যাল লিংক পেজ */}
+        {activeSection === 'support' && (
+          <div className="space-y-3.5">
+            <div className="bg-white border rounded-3xl p-5 text-center space-y-3 shadow-sm">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto"><HelpCircle className="w-6 h-6" /></div>
+              <h3 className="text-sm font-black text-slate-900">অ্যাডমিন সাপোর্ট ও যোগাযোগ</h3>
+              <p className="text-[11px] text-slate-500">যেকোনো প্রয়োজনে সরাসরি নিচে দেওয়া মাধ্যমে যোগাযোগ করুন।</p>
+              <div className="grid grid-cols-2 gap-2.5 pt-2">
+                <a href={adminSocialLinks.facebookPage} target="_blank" rel="noreferrer" className="py-3 bg-blue-50 text-blue-600 font-bold rounded-2xl border flex items-center justify-center gap-2">
+                  <Facebook className="w-4 h-4" /> ফেসবুক পেজ
+                </a>
+                <a href={`https://wa.me/${adminSocialLinks.whatsappNumber.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" className="py-3 bg-emerald-50 text-emerald-600 font-bold rounded-2xl border flex items-center justify-center gap-2">
+                  <MessageCircle className="w-4 h-4" /> হোয়াটসঅ্যাপ
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* প্রোফাইল ও পিন চেঞ্জ পেজ */}
+        {activeSection === 'profile' && (
+          <div className="space-y-4">
+            <div className="bg-white border rounded-3xl p-5 text-center space-y-3 shadow-sm">
+              <div className="w-16 h-16 rounded-full bg-indigo-600 text-white flex items-center justify-center font-black text-2xl mx-auto shadow-md">{userProfile.name.charAt(0)}</div>
+              <div>
+                <h3 className="text-sm font-black text-slate-900">{userProfile.name}</h3>
+                <p className="text-xs text-slate-500 font-mono mt-1">📱 {userProfile.phone}</p>
+                
+                <div className="flex items-center justify-center gap-1.5 mt-2">
+                  <span className="text-xs text-slate-600 font-mono">🔒 পিন: {showPin ? userProfile.pin : '••••'}</span>
+                  <button onClick={() => setShowPin(!showPin)} className="text-indigo-600 p-1">
+                    {showPin ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* পিন পরিবর্তন মডিউল */}
+            <div className="bg-white border rounded-3xl p-4 space-y-3 shadow-sm">
+              <h4 className="font-bold text-slate-900 border-b pb-2 flex items-center gap-1.5"><Key className="w-4 h-4 text-indigo-600" /> পিন পরিবর্তন করুন</h4>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 block mb-1">পুরনো পিন</label>
+                <input type="password" maxLength={6} placeholder="••••" value={oldPinInput} onChange={(e) => setOldPinInput(e.target.value)} className="w-full bg-slate-50 border rounded-xl p-2.5 font-mono font-bold" />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 block mb-1">নতুন পিন</label>
+                <input type="password" maxLength={6} placeholder="নতুন পিন দিন" value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} className="w-full bg-slate-50 border rounded-xl p-2.5 font-mono font-bold" />
+              </div>
+              <button onClick={handleUpdatePin} className="w-full py-2.5 bg-indigo-600 text-white font-bold rounded-xl shadow-md">পিন আপডেট করুন</button>
+            </div>
+          </div>
+        )}
+
         {/* ড্রাইভ প্যাক পেজ */}
         {activeSection === 'drive' && (
           <div className="space-y-3">
@@ -337,7 +422,7 @@ export default function UserApp() {
               <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-3xl p-6 text-center space-y-2">
                 <AlertCircle className="w-10 h-10 mx-auto text-rose-500" />
                 <h4 className="font-black text-sm">⚠️ ড্রাইভ অফার সাময়িকভাবে বন্ধ আছে</h4>
-                <p className="text-[11px] text-rose-600">দুঃখিত! এই মুহূর্তে অ্যাডমিন কর্তৃক ড্রাইভ অফারগুলো বন্ধ রাখা হয়েছে। দয়া করে পরবর্তী আপডেটের জন্য অপেক্ষা করুন।</p>
+                <p className="text-[11px] text-rose-600">দুঃখিত! এই মুহূর্তে অ্যাডমিন কর্তৃক ড্রাইভ অফারগুলো বন্ধ রাখা হয়েছে।</p>
               </div>
             ) : (
               <>
@@ -436,14 +521,6 @@ export default function UserApp() {
           </div>
         )}
 
-        {activeSection === 'profile' && (
-          <div className="bg-white border rounded-3xl p-5 text-center space-y-3 shadow-sm">
-            <div className="w-16 h-16 rounded-full bg-indigo-600 text-white flex items-center justify-center font-black text-2xl mx-auto shadow-md">{userProfile.name.charAt(0)}</div>
-            <h3 className="text-sm font-black text-slate-900">{userProfile.name}</h3>
-            <p className="text-xs text-slate-500 font-mono">📱 {showPhone ? userProfile.phone : '01712-******'}</p>
-          </div>
-        )}
-
         {activeSection === 'add_balance' && (
           <div className="space-y-3.5">
             {!addMoneyEnabled && <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3 text-rose-700 font-bold text-center">⚠️ বর্তমানে Add Balance সার্ভিস বন্ধ রয়েছে।</div>}
@@ -467,7 +544,7 @@ export default function UserApp() {
         {activeSection === 'flexiload' && (
           <div className="bg-white border rounded-3xl p-4 space-y-3.5 shadow-sm">
             <h4 className="font-bold text-slate-900 border-b pb-2">মোবাইল ফ্লেক্সিলোড / রিচার্জ</h4>
-            <input type="tel" maxLength={11} placeholder="017XXXXXXXX" value={flexiPhone} onChange={(e) => handlePhoneChange(e.target.value)} className="w-full bg-slate-50 border rounded-xl p-2.5 font-bold font-mono" />
+            <input type="tel" maxLength={11} placeholder="017XXXXXXXX" value={flexiPhone} onChange={(e) => setFlexiPhone(e.target.value)} className="w-full bg-slate-50 border rounded-xl p-2.5 font-bold font-mono" />
             <input type="number" placeholder="টাকার পরিমাণ (৳)" value={flexiAmount} onChange={(e) => setFlexiAmount(e.target.value)} className="w-full bg-slate-50 border rounded-xl p-2.5 font-bold" />
             <button onClick={handleFlexiSubmit} className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl">রিচার্জ কনফার্ম করুন</button>
           </div>
