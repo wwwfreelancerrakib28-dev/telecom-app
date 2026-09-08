@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { ChevronRight, Check } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Send, Check, Loader2 } from 'lucide-react';
 
 interface SlideToConfirmProps {
   label: string;
@@ -14,91 +14,97 @@ export const SlideToConfirm: React.FC<SlideToConfirmProps> = ({
   isLoading = false,
   disabled = false,
 }) => {
-  const [sliderPos, setSliderPos] = useState(0);
+  const [progress, setProgress] = useState(0);
+  const [isHolding, setIsHolding] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
-  const trackRef = useRef<HTMLDivElement>(null);
-  const isDragging = useRef(false);
-  const startX = useRef(0);
+  const timerRef = useRef<any>(null);
 
-  const handlePointerDown = (e: React.PointerEvent) => {
-    if (disabled || isConfirmed || isLoading) return;
-    isDragging.current = true;
-    startX.current = e.clientX - sliderPos;
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  const startHold = () => {
+    if (disabled || isLoading || isConfirmed) return;
+    setIsHolding(true);
+    setProgress(0);
+
+    const step = 20; // 20ms পর পর আপডেট
+    const totalTime = 1300; // ১.৩ সেকেন্ড ধরে রাখতে হবে
+    const increment = (step / totalTime) * 100;
+
+    timerRef.current = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 100) {
+          clearInterval(timerRef.current);
+          setIsConfirmed(true);
+          onConfirm();
+          return 100;
+        }
+        return prev + increment;
+      });
+    }, step);
   };
 
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isDragging.current || !trackRef.current || isConfirmed || disabled) return;
-    const trackWidth = trackRef.current.offsetWidth;
-    const knobWidth = 48;
-    const maxDrag = trackWidth - knobWidth - 8;
-
-    const currentX = e.clientX - startX.current;
-    const clamped = Math.max(0, Math.min(currentX, maxDrag));
-    setSliderPos(clamped);
-
-    // If dragged past 85%
-    if (clamped >= maxDrag * 0.88) {
-      isDragging.current = false;
-      setSliderPos(maxDrag);
-      setIsConfirmed(true);
-      onConfirm();
-    }
+  const cancelHold = () => {
+    if (isConfirmed) return;
+    if (timerRef.current) clearInterval(timerRef.current);
+    setIsHolding(false);
+    setProgress(0);
   };
 
-  const handlePointerUp = () => {
-    if (!isDragging.current) return;
-    isDragging.current = false;
-    if (!isConfirmed) {
-      setSliderPos(0);
-    }
-  };
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
 
   return (
     <div
-      ref={trackRef}
-      className={`relative w-full h-14 rounded-full select-none overflow-hidden transition-colors duration-200 flex items-center px-1.5 ${
+      onMouseDown={startHold}
+      onMouseUp={cancelHold}
+      onMouseLeave={cancelHold}
+      onTouchStart={startHold}
+      onTouchEnd={cancelHold}
+      style={{ touchAction: 'none' }}
+      className={`relative w-full h-14 rounded-2xl select-none overflow-hidden flex items-center justify-center cursor-pointer transition-all active:scale-[0.98] border shadow-sm ${
         disabled
-          ? 'bg-slate-200 cursor-not-allowed opacity-60'
+          ? 'bg-slate-200 border-slate-300 cursor-not-allowed opacity-60'
           : isConfirmed
-          ? 'bg-emerald-600'
-          : 'bg-indigo-50 border border-indigo-200'
+          ? 'bg-emerald-600 border-emerald-600'
+          : 'bg-indigo-50 border-indigo-300'
       }`}
     >
-      {/* Background Track Fill */}
+      {/* ফিল হওয়া কালার অ্যানিমেশন */}
       <div
-        className="absolute left-0 top-0 bottom-0 bg-indigo-100 transition-all pointer-events-none"
-        style={{ width: `${sliderPos + 48}px` }}
+        className={`absolute left-0 top-0 bottom-0 transition-all ease-linear pointer-events-none ${
+          isConfirmed ? 'bg-emerald-600' : 'bg-indigo-600'
+        }`}
+        style={{ width: `${progress}%` }}
       />
 
-      {/* Centered Guidance Text */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-xs font-bold uppercase tracking-wider">
-        {isConfirmed ? (
-          <span className="text-white flex items-center gap-1">
-            <Check className="w-4 h-4" /> Processing Order...
+      {/* রকেট আইকন ও টেক্সট */}
+      <div className="relative z-10 flex items-center gap-2.5 font-bold text-xs uppercase tracking-wider pointer-events-none">
+        {isLoading ? (
+          <span className="text-white flex items-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin" /> Processing...
+          </span>
+        ) : isConfirmed ? (
+          <span className="text-white flex items-center gap-2">
+            <Check className="w-5 h-5 animate-bounce" /> Successful!
           </span>
         ) : (
-          <span className="text-indigo-600">{label}</span>
-        )}
-      </div>
-
-      {/* Draggable Knob */}
-      <div
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-        style={{ transform: `translateX(${sliderPos}px)` }}
-        className={`relative z-10 w-11 h-11 rounded-full flex items-center justify-center text-white shadow-md cursor-grab active:cursor-grabbing transition-transform ease-out ${
-          isConfirmed
-            ? 'bg-white text-emerald-600'
-            : 'bg-indigo-600 active:scale-105'
-        }`}
-      >
-        {isConfirmed ? (
-          <Check className="w-5 h-5 animate-bounce" />
-        ) : (
-          <ChevronRight className="w-5 h-5 ml-0.5 animate-pulse" />
+          <>
+            <div
+              className={`transition-all duration-300 ease-out transform ${
+                isConfirmed
+                  ? 'translate-x-24 -translate-y-6 scale-150 rotate-45 text-white'
+                  : isHolding
+                  ? 'translate-x-1 -rotate-12 scale-125 text-white'
+                  : 'text-indigo-600'
+              }`}
+            >
+              <Send className="w-4 h-4 fill-current" />
+            </div>
+            <span className={progress > 50 ? 'text-white' : 'text-indigo-700'}>
+              {isHolding ? 'ধরে রাখুন...' : label.replace('Slide', 'Hold')}
+            </span>
+          </>
         )}
       </div>
     </div>
