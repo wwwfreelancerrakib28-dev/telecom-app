@@ -21,11 +21,12 @@ import {
   Eye,
   EyeOff,
   Lock,
-  HelpCircle
+  ShoppingCart,
+  AlertCircle,
+  Clock
 } from 'lucide-react';
 
 export default function UserApp() {
-  // লগইন স্টেট (যদি ফলস হয় তবে ইউজার লগইন বা পিন রিকভারি স্ক্রিন দেখাবে)
   const [isLoggedIn, setIsLoggedIn] = useState(true);
   const [authView, setAuthView] = useState<'login' | 'forgot'>('login');
   
@@ -39,8 +40,7 @@ export default function UserApp() {
     driveBalance: 3820
   });
 
-  // অ্যাডমিন প্যানেল থেকে নিয়ন্ত্রিত সোশ্যাল মিডিয়া ও সাপোর্ট লিংক স্টেট
-  const [adminSocialLinks, setAdminSocialLinks] = useState({
+  const [adminSocialLinks] = useState({
     facebookPage: 'https://facebook.com/yourpage',
     whatsappNumber: '+8801728116153'
   });
@@ -48,7 +48,7 @@ export default function UserApp() {
   const [showPhone, setShowPhone] = useState(false);
   const [showPin, setShowPin] = useState(false);
 
-  const [runningNotice] = useState('🎉 স্বাগতম SIM OFFER SHOP এ! পিন বা পাসওয়ার্ড ভুলে গেলে নিচে হোয়াটসঅ্যাপ বা ফেসবুক পেজে যোগাযোগ করুন।');
+  const [runningNotice] = useState('🎉 স্বাগতম SIM OFFER SHOP এ! অর্ডার করার সাথে সাথেই প্রসেসিং শুরু হয়ে যাবে।');
 
   const [notifications, setNotifications] = useState([
     { id: '1', title: 'স্বাগতম!', msg: 'আপনার অ্যাকাউন্ট সফলভাবে ভেরিফাই হয়েছে।', time: '10:30 AM', read: false }
@@ -61,7 +61,6 @@ export default function UserApp() {
   const [addAmount, setAddAmount] = useState('');
   const [trxId, setTrxId] = useState('');
 
-  const [historyTab, setHistoryTab] = useState<'add_money' | 'flexiload' | 'drive'>('add_money');
   const [userAddMoneyLogs, setUserAddMoneyLogs] = useState([
     { id: 'AM-101', method: 'bKash', amount: 1000, type: 'main', trxId: 'BK990011', time: 'Today, 10:30 AM', status: 'Approved' }
   ]);
@@ -71,6 +70,51 @@ export default function UserApp() {
   const [userDriveLogs, setUserDriveLogs] = useState([
     { id: 'DRV-301', operator: 'Grameenphone', title: '30 GB + 700 Min', price: 580, number: '01711223344', time: 'Yesterday', status: 'Completed' }
   ]);
+  const [userScratchLogs, setUserScratchLogs] = useState<any[]>([]);
+
+  // স্ক্র্যাচ কার্ড স্টেট
+  const [scratchCards] = useState([
+    { id: 'SC-1', type: 'Minute', title: '৫০ মিনিট প্যাক', price: 30, details: '৫০ মিনিট (মেয়াদ ৩০ দিন)' },
+    { id: 'SC-2', type: 'Internet', title: '১ জিবি ইন্টারনেট প্যাক', price: 25, details: '১ জিবি এমবি (মেয়াদ ৭ দিন)' },
+    { id: 'SC-3', type: 'Minute', title: '১০০ মিনিট প্যাক', price: 60, details: '১০০ মিনিট (মেয়াদ ৩০ দিন)' }
+  ]);
+  const [buyingCard, setBuyingCard] = useState<any | null>(null);
+  const [targetCardNumber, setTargetCardNumber] = useState('');
+  
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [popupAlert, setPopupAlert] = useState<string | null>(null);
+
+  const handleCopyPaymentNumber = (num: string, id: string) => {
+    navigator.clipboard.writeText(num);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2500);
+  };
+
+  // স্ক্র্যাচ কার্ড কেনার প্রসেসিং কনফার্মেশন
+  const handleConfirmBuyCard = () => {
+    if (!buyingCard) return;
+    if (!targetCardNumber || targetCardNumber.length < 11) {
+      alert('দয়া করে সঠিক ১১ ডিজিটের মোবাইল নম্বর লিখুন!');
+      return;
+    }
+    if (userProfile.mainBalance < buyingCard.price) {
+      alert('⚠️ আপনার মেইন ব্যালেন্সে পর্যাপ্ত টাকা নেই! দয়া করে আগে ব্যালেন্স অ্যাড করুন।');
+      setBuyingCard(null);
+      setTargetCardNumber('');
+      return;
+    }
+
+    setUserProfile(prev => ({ ...prev, mainBalance: prev.mainBalance - buyingCard.price }));
+    setUserScratchLogs(prev => [
+      { id: 'SCR-' + Date.now(), title: buyingCard.title, price: buyingCard.price, number: targetCardNumber, time: 'Just now' },
+      ...prev
+    ]);
+
+    // নতুন সুন্দর প্রসেসিং মেসেজ পপ-আপ
+    setPopupAlert(`⏳ অপেক্ষা করুন!\nকিছুক্ষণের মধ্যেই আপনার দেওয়া অর্ডারটি সফলভাবে সম্পন্ন করা হচ্ছে।`);
+    setBuyingCard(null);
+    setTargetCardNumber('');
+  };
 
   const [driveServiceEnabled] = useState(true);
   const [operatorStatus] = useState<Record<string, boolean>>({
@@ -88,25 +132,7 @@ export default function UserApp() {
   const [targetDriveNumber, setTargetDriveNumber] = useState('');
   const [hasSimLoan, setHasSimLoan] = useState<boolean | null>(null);
 
-  const [scratchCards] = useState([
-    { id: 'SC-1', type: 'Minute', title: '৫০ মিনিট প্যাক', price: 30, pin: '*123*88493021#' }
-  ]);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [popupAlert, setPopupAlert] = useState<string | null>(null);
-
-  const handleCopyPin = (pin: string, id: string) => {
-    navigator.clipboard.writeText(pin);
-    setCopiedId(id);
-    setPopupAlert('🎉 পিন কপি হয়েছে!');
-    setTimeout(() => { setCopiedId(null); setPopupAlert(null); }, 3000);
-  };
-
-  const handleCopyPaymentNumber = (num: string, id: string) => {
-    navigator.clipboard.writeText(num);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2500);
-  };
-
+  // ড্রাইভ অর্ডার প্রসেসিং কনফার্মেশন
   const handleConfirmDriveOrder = () => {
     if (!targetDriveNumber || targetDriveNumber.length < 11) return alert('সঠিক ১১ ডিজিট নম্বর লিখুন!');
     if (hasSimLoan === null) return alert('লোন আছে কি না সিলেক্ট করুন!');
@@ -119,7 +145,7 @@ export default function UserApp() {
       ...prev
     ]);
 
-    setPopupAlert('🎉 আপনার ড্রাইভ অর্ডার সফলভাবে পাঠানো হয়েছে!');
+    setPopupAlert(`⏳ অপেক্ষা করুন!\nকিছুক্ষণের মধ্যেই আপনার দেওয়া ড্রাইভ অর্ডারটি সফলভাবে সম্পন্ন করা হচ্ছে।`);
     setOrderingOffer(null);
     setTargetDriveNumber('');
     setHasSimLoan(null);
@@ -153,6 +179,7 @@ export default function UserApp() {
     else if (val.startsWith('015')) setFlexiOperator('Teletalk');
   };
 
+  // ফ্লেক্সিলোড অর্ডার প্রসেসিং কনফার্মেশন
   const handleFlexiSubmit = () => {
     if (!flexiPhone || flexiPhone.length < 11) return alert('সঠিক ১১ ডিজিট নম্বর লিখুন!');
     if (!flexiAmount || Number(flexiAmount) <= 0) return alert('সঠিক টাকার পরিমাণ লিখুন!');
@@ -164,7 +191,7 @@ export default function UserApp() {
       ...prev
     ]);
 
-    setPopupAlert('🎉 ফ্লেক্সিলোড রিকোয়েস্ট সফলভাবে জমা হয়েছে!');
+    setPopupAlert(`⏳ অপেক্ষা করুন!\nকয়েক সেকেন্ডের মধ্যেই আপনার ফ্লেক্সিলোড সফলভাবে সম্পন্ন হবে।`);
     setFlexiPhone('');
     setFlexiAmount('');
   };
@@ -183,20 +210,20 @@ export default function UserApp() {
 
   const handleBack = () => {
     if (orderingOffer) setOrderingOffer(null);
+    else if (buyingCard) { setBuyingCard(null); setTargetCardNumber(''); }
     else if (activeSection !== 'menu') setActiveSection('menu');
   };
 
   useEffect(() => {
     const backListener = CapacitorApp.addListener('backButton', () => {
-      if (orderingOffer || activeSection !== 'menu') handleBack();
+      if (orderingOffer || buyingCard || activeSection !== 'menu') handleBack();
       else CapacitorApp.exitApp();
     });
     return () => { backListener.then(h => h.remove()); };
-  }, [orderingOffer, activeSection]);
+  }, [orderingOffer, buyingCard, activeSection]);
 
   const visibleOffers = driveOffers.filter(o => o.operator === selectedDriveOp);
 
-  // যদি ইউজার লগআউট অবস্থায় থাকে তবে লগইন বা পিন রিসেট স্ক্রিন দেখাবে
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 select-none font-sans">
@@ -225,20 +252,10 @@ export default function UserApp() {
               </p>
               
               <div className="grid grid-cols-2 gap-2 pt-2">
-                <a 
-                  href={adminSocialLinks.facebookPage} 
-                  target="_blank" 
-                  rel="noreferrer"
-                  className="py-2.5 bg-blue-50 text-blue-600 font-bold text-xs rounded-xl border border-blue-200 flex items-center justify-center gap-1.5"
-                >
+                <a href={adminSocialLinks.facebookPage} target="_blank" rel="noreferrer" className="py-2.5 bg-blue-50 text-blue-600 font-bold text-xs rounded-xl border flex items-center justify-center gap-1.5">
                   <Facebook className="w-4 h-4" /> ফেসবুক পেজ
                 </a>
-                <a 
-                  href={`https://wa.me/${adminSocialLinks.whatsappNumber.replace(/[^0-9]/g, '')}`} 
-                  target="_blank" 
-                  rel="noreferrer"
-                  className="py-2.5 bg-emerald-50 text-emerald-600 font-bold text-xs rounded-xl border border-emerald-200 flex items-center justify-center gap-1.5"
-                >
+                <a href={`https://wa.me/${adminSocialLinks.whatsappNumber.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" className="py-2.5 bg-emerald-50 text-emerald-600 font-bold text-xs rounded-xl border flex items-center justify-center gap-1.5">
                   <MessageCircle className="w-4 h-4" /> হোয়াটসঅ্যাপ
                 </a>
               </div>
@@ -355,6 +372,82 @@ export default function UserApp() {
           </div>
         )}
 
+        {/* স্ক্র্যাচ কার্ড পেজ */}
+        {activeSection === 'scratch' && (
+          <div className="space-y-3">
+            <h4 className="font-bold text-slate-800 px-1">স্ক্র্যাচ কার্ড অফারসমূহ</h4>
+            {scratchCards.map((card) => (
+              <div key={card.id} className="bg-white border rounded-2xl p-4 space-y-3 shadow-sm">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <span className="font-black text-slate-900 text-xs">{card.title}</span>
+                    <p className="text-[10px] text-slate-500 mt-0.5">{card.details}</p>
+                  </div>
+                  <span className="text-xs font-mono font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-xl">৳{card.price}</span>
+                </div>
+
+                <div className="flex justify-end pt-1 border-t border-slate-100">
+                  <button 
+                    onClick={() => {
+                      setBuyingCard(card);
+                      setTargetCardNumber('');
+                    }} 
+                    className="py-1.5 px-4 bg-pink-600 hover:bg-pink-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1 active:scale-95"
+                  >
+                    <ShoppingCart className="w-3.5 h-3.5" /> কিনুন
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {buyingCard && (
+              <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                <div className="bg-white rounded-3xl p-5 max-w-xs w-full space-y-3.5 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
+                  <div className="border-b pb-2">
+                    <span className="text-[9px] font-bold uppercase text-pink-600 bg-pink-50 px-2 py-0.5 rounded">স্ক্র্যাচ কার্ড</span>
+                    <h4 className="text-xs font-black text-slate-900 mt-1">{buyingCard.title}</h4>
+                    <p className="text-xs font-mono font-bold text-emerald-600 mt-0.5">মূল্য: ৳{buyingCard.price}</p>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-600 block mb-1">যে নম্বরে অফারটি নিতে চান (১১ ডিজিট)</label>
+                    <input 
+                      type="tel" 
+                      maxLength={11} 
+                      placeholder="017XXXXXXXX" 
+                      value={targetCardNumber} 
+                      onChange={(e) => setTargetCardNumber(e.target.value)} 
+                      className="w-full bg-slate-50 border rounded-xl p-2.5 text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-indigo-600" 
+                    />
+                  </div>
+
+                  <p className="text-[10px] text-slate-500 leading-tight">
+                    ❓ আপনি কি শিওর? <strong className="text-slate-900">৳{buyingCard.price}</strong> বিনিময়ে আপনি এই কার্ডটি নিতে চান?
+                  </p>
+
+                  <div className="flex gap-2 pt-1">
+                    <button 
+                      onClick={() => setBuyingCard(null)} 
+                      className="flex-1 py-2.5 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl active:scale-95"
+                    >
+                      বাতিল
+                    </button>
+                    <button 
+                      disabled={targetCardNumber.length < 11}
+                      onClick={handleConfirmBuyCard} 
+                      className={`flex-1 py-2.5 text-white font-bold text-xs rounded-xl shadow-md active:scale-95 transition-all ${
+                        targetCardNumber.length < 11 ? 'bg-slate-300 cursor-not-allowed opacity-50' : 'bg-emerald-600 hover:bg-emerald-700'
+                      }`}
+                    >
+                      কনফার্ম করুন
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {activeSection === 'profile' && (
           <div className="space-y-4">
             <div className="bg-white border rounded-3xl p-5 text-center space-y-3 shadow-sm">
@@ -392,23 +485,6 @@ export default function UserApp() {
                   <span className="text-[10px] text-slate-500 block mb-0.5 font-bold">ড্রাইভ ব্যালেন্স</span>
                   <h4 className="text-base font-black font-mono text-amber-600">৳{userProfile.driveBalance}</h4>
                 </div>
-              </div>
-            </div>
-
-            <div className="bg-white border rounded-3xl p-4 space-y-3 shadow-sm">
-              <h4 className="font-bold text-slate-900 border-b pb-2 flex items-center gap-1.5">
-                <History className="w-4 h-4 text-violet-600" /> আপনার সাম্প্রতিক লেনদেন রিপোর্ট
-              </h4>
-              <div className="space-y-2">
-                {userFlexiLogs.map(flx => (
-                  <div key={flx.id} className="bg-slate-50 border rounded-2xl p-3 flex justify-between items-center text-xs">
-                    <div>
-                      <p className="font-bold text-slate-900">রিচার্জ: ৳{flx.amount} ({flx.operator})</p>
-                      <p className="text-[10px] text-slate-500 font-mono">নম্বর: {flx.number}</p>
-                    </div>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${flx.status === 'Completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{flx.status}</span>
-                  </div>
-                ))}
               </div>
             </div>
           </div>
@@ -523,17 +599,6 @@ export default function UserApp() {
           </div>
         )}
 
-        {activeSection === 'scratch' && (
-          <div className="space-y-3">
-            {scratchCards.map((card) => (
-              <div key={card.id} className="bg-white border rounded-2xl p-4 flex justify-between items-center shadow-sm">
-                <span>{card.title} - ৳{card.price}</span>
-                <button onClick={() => handleCopyPin(card.pin, card.id)} className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-bold">কপি পিন</button>
-              </div>
-            ))}
-          </div>
-        )}
-
         {activeSection === 'flexiload' && (
           <div className="bg-white border rounded-3xl p-4 space-y-3.5 shadow-sm">
             <h4 className="font-bold text-slate-900 border-b pb-2">মোবাইল ফ্লেক্সিলোড / রিচার্জ</h4>
@@ -635,13 +700,17 @@ export default function UserApp() {
 
       {popupAlert && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-5 max-w-xs w-full text-center space-y-3 shadow-2xl">
-            <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto"><Check className="w-5 h-5 stroke-[3]" /></div>
-            <h4 className="text-xs font-extrabold text-slate-900">{popupAlert}</h4>
-            <button onClick={() => setPopupAlert(null)} className="w-full py-2 bg-indigo-600 text-white font-bold text-xs rounded-xl">ঠিক আছে</button>
+          <div className="bg-white rounded-3xl p-5 max-w-xs w-full text-center space-y-4 shadow-2xl animate-in fade-in zoom-in-95">
+            <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
+              <Clock className="w-6 h-6 animate-spin" />
+            </div>
+            <h4 className="text-xs font-black text-slate-900 whitespace-pre-line leading-relaxed">{popupAlert}</h4>
+            <button onClick={() => setPopupAlert(null)} className="w-full py-2.5 bg-indigo-600 text-white font-bold text-xs rounded-xl shadow-md active:scale-95">
+              ঠিক আছে
+            </button>
           </div>
         </div>
       )}
     </div>
   );
-              }
+}
