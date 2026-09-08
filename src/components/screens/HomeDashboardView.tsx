@@ -29,7 +29,12 @@ import {
   ToggleLeft,
   ToggleRight,
   Share2,
-  MessageSquare
+  MessageSquare,
+  Search,
+  Eye,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Save
 } from 'lucide-react';
 import { UserProfile, ScreenId, Transaction } from '../../types';
 
@@ -68,13 +73,46 @@ export const HomeDashboardView: React.FC<HomeDashboardProps> = ({
   const [adminError, setAdminError] = useState('');
   const [adminTab, setAdminTab] = useState<'users' | 'add_money' | 'offers' | 'chats' | 'links'>('users');
 
-  // অ্যাডমিন ডেটা স্টেট
+  // ইউজার সার্চ এবং ডিটেইল ভিউ স্টেট
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedUserDetail, setSelectedUserDetail] = useState<any | null>(null);
+
+  // ব্যালেন্স মডিফাই ইনপুট স্টেট (কাস্টম ব্যালেন্স এডিট)
+  const [customMainBalance, setCustomMainBalance] = useState<string>('');
+  const [customDriveBalance, setCustomDriveBalance] = useState<string>('');
+
+  // অ্যাডমিন ইউজার লিস্ট (লোকাল ও সিমুলেটেড হিস্ট্রি সহ)
   const [usersList, setUsersList] = useState<any[]>([
-    { id: '1', name: user.name || 'User', phone: user.phone || '01728116153', pin: user.pin || '1234', mainBalance: user.mainBalance, driveBalance: user.driveBalance, avatar: user.avatar || '' },
-    { id: '2', name: 'Rakib Telecom', phone: '01844556677', pin: '5566', mainBalance: 500, driveBalance: 1200, avatar: '' }
+    { 
+      id: '1', 
+      name: user.name || 'User', 
+      phone: user.phone || '01728116153', 
+      pin: user.pin || '1234', 
+      mainBalance: user.mainBalance, 
+      driveBalance: user.driveBalance, 
+      avatar: user.avatar || '',
+      createdAt: '12 Jan 2025',
+      history: transactions
+    },
+    { 
+      id: '2', 
+      name: 'Rakib Telecom', 
+      phone: '01844556677', 
+      pin: '5566', 
+      mainBalance: 500, 
+      driveBalance: 1200, 
+      avatar: '',
+      createdAt: '15 Feb 2025',
+      history: [
+        { id: 'TXN-9988', type: 'add_balance', balanceType: 'main', title: 'Add Balance (bKash)', amount: 500, recipientOrSenderNumber: '01844556677', timestamp: '10:30 AM', status: 'success', trxId: 'BK990011' },
+        { id: 'TXN-9989', type: 'add_balance', balanceType: 'drive', title: 'Add Balance (Nagad)', amount: 1200, recipientOrSenderNumber: '01844556677', timestamp: 'Yesterday', status: 'success', trxId: 'NG112233' },
+        { id: 'TXN-9990', type: 'recharge', balanceType: 'main', title: 'Flexiload Recharge (Robi)', amount: 100, recipientOrSenderNumber: '01811223344', timestamp: 'Yesterday', status: 'success', trxId: 'FLX7788' }
+      ]
+    }
   ]);
   const [editingUser, setEditingUser] = useState<any | null>(null);
 
+  // অন্যান্য সেটিংস স্টেট
   const [addMoneyEnabled, setAddMoneyEnabled] = useState(true);
   const [paymentNumbers, setPaymentNumbers] = useState({
     bkash: '01728116153',
@@ -151,13 +189,58 @@ export const HomeDashboardView: React.FC<HomeDashboardProps> = ({
     }
   };
 
+  // ইউজার এডিট সেভ
   const handleSaveUserEdit = () => {
     if (!editingUser) return;
     setUsersList((prev) => prev.map((u) => (u.id === editingUser.id ? editingUser : u)));
     if (editingUser.id === '1' && onUpdateUser) {
       onUpdateUser({ ...user, name: editingUser.name, phone: editingUser.phone, pin: editingUser.pin });
     }
+    if (selectedUserDetail && selectedUserDetail.id === editingUser.id) {
+      setSelectedUserDetail(editingUser);
+    }
     setEditingUser(null);
+  };
+
+  // ইউজারের ডিটেইলস সিলেক্ট করার সাথে ইনপুট সেট করা
+  const handleOpenUserDetail = (u: any) => {
+    setSelectedUserDetail(u);
+    setCustomMainBalance(u.mainBalance.toString());
+    setCustomDriveBalance(u.driveBalance.toString());
+  };
+
+  // কাস্টম ব্যালেন্স মডিফাই হ্যান্ডলার (ফাঁকা রেখে ০ বা যেকোনো সংখ্যা বসিয়ে আপডেট করা)
+  const handleSaveModifiedBalance = (userId: string) => {
+    const mainNum = customMainBalance === '' ? 0 : Number(customMainBalance);
+    const driveNum = customDriveBalance === '' ? 0 : Number(customDriveBalance);
+
+    if (isNaN(mainNum) || isNaN(driveNum)) {
+      alert('সঠিক সংখ্যা ইনপুট দিন');
+      return;
+    }
+
+    setUsersList((prev) =>
+      prev.map((u) => {
+        if (u.id === userId) {
+          const updated = {
+            ...u,
+            mainBalance: mainNum,
+            driveBalance: driveNum,
+          };
+          if (u.id === '1' && onUpdateUser) {
+            onUpdateUser({
+              ...user,
+              mainBalance: updated.mainBalance,
+              driveBalance: updated.driveBalance,
+            });
+          }
+          setSelectedUserDetail(updated);
+          return updated;
+        }
+        return u;
+      })
+    );
+    alert('ব্যালেন্স সফলভাবে আপডেট করা হয়েছে!');
   };
 
   const handleAddOffer = () => {
@@ -180,6 +263,13 @@ export const HomeDashboardView: React.FC<HomeDashboardProps> = ({
     setChatMessages((prev) => [...prev, { sender: 'admin', text: replyText.trim() }]);
     setReplyText('');
   };
+
+  // ফোন নম্বর বা নাম দিয়ে ইউজার ফিল্টার
+  const filteredUsers = usersList.filter(
+    (u) =>
+      u.phone.includes(searchQuery.trim()) ||
+      u.name.toLowerCase().includes(searchQuery.toLowerCase().trim())
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col pb-8 select-none">
@@ -216,7 +306,7 @@ export const HomeDashboardView: React.FC<HomeDashboardProps> = ({
         </div>
       </header>
 
-      {/* ব্যালেন্স কার্ড (এখানে ক্লিক করলে অ্যাডমিন লগইন খুলবে) */}
+      {/* ব্যালেন্স কার্ড (অ্যাডমিন লগইন ট্র্রিগার) */}
       <div className="p-4 cursor-pointer" onClick={() => setIsAdminAuthOpen(true)}>
         <div className="bg-gradient-to-tr from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-5 text-white shadow-xl shadow-indigo-950/20 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-36 h-36 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
@@ -484,7 +574,7 @@ export const HomeDashboardView: React.FC<HomeDashboardProps> = ({
         </div>
       )}
 
-      {/* ২. অ্যাডমিন লগইন মডাল (নাম্বার কিপ্যাড সহ) */}
+      {/* ২. অ্যাডমিন লগইন মডাল */}
       {isAdminAuthOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-xs bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl text-center relative">
@@ -504,7 +594,7 @@ export const HomeDashboardView: React.FC<HomeDashboardProps> = ({
                 <input type="text" disabled value={adminPhone} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-400 font-mono" />
               </div>
               <div>
-                <label className="text-[10px] text-slate-400 block mb-1">অ্যাডমিন পাসওয়ার্ড (শুধুমাত্র নাম্বার কিপ্যাড)</label>
+                <label className="text-[10px] text-slate-400 block mb-1">অ্যাডমিন পাসওয়ার্ড (নাম্বার কিপ্যাড)</label>
                 <input
                   type="password"
                   inputMode="numeric"
@@ -524,7 +614,7 @@ export const HomeDashboardView: React.FC<HomeDashboardProps> = ({
         </div>
       )}
 
-      {/* ৩. নতুন সুপার অ্যাডমিন কন্ট্রোল সেন্টার */}
+      {/* ৩. সুপার অ্যাডমিন কন্ট্রোল সেন্টার */}
       {isAdminDashboardOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-2 sm:p-4">
           <div className="w-full max-w-2xl bg-slate-900 text-white rounded-3xl border border-slate-800 shadow-2xl flex flex-col max-h-[94vh] overflow-hidden">
@@ -543,17 +633,18 @@ export const HomeDashboardView: React.FC<HomeDashboardProps> = ({
               </button>
             </div>
 
+            {/* অ্যাডমিন ট্যাব মেনু */}
             <div className="flex border-b border-slate-800 overflow-x-auto bg-slate-950/40 px-2 scrollbar-none">
               <button
-                onClick={() => setAdminTab('users')}
+                onClick={() => { setAdminTab('users'); setSelectedUserDetail(null); }}
                 className={`py-3 px-3 text-xs font-bold flex items-center gap-1.5 border-b-2 whitespace-nowrap ${
                   adminTab === 'users' ? 'border-red-500 text-red-400' : 'border-transparent text-slate-400 hover:text-white'
                 }`}
               >
-                <Users className="w-4 h-4" /> ইউজার কন্ট্রোল
+                <Users className="w-4 h-4" /> ইউজার ও ব্যালেন্স কন্ট্রোল
               </button>
               <button
-                onClick={() => setAdminTab('add_money')}
+                onClick={() => setActiveTab ? setAdminTab('add_money') : setAdminTab('add_money')}
                 className={`py-3 px-3 text-xs font-bold flex items-center gap-1.5 border-b-2 whitespace-nowrap ${
                   adminTab === 'add_money' ? 'border-red-500 text-red-400' : 'border-transparent text-slate-400 hover:text-white'
                 }`}
@@ -588,34 +679,72 @@ export const HomeDashboardView: React.FC<HomeDashboardProps> = ({
             </div>
 
             <div className="flex-1 overflow-y-auto p-4">
-              {/* ইউজার কন্ট্রোল */}
-              {adminTab === 'users' && (
+              {/* ১. ইউজার ও ব্যালেন্স কন্ট্রোল ট্যাব */}
+              {adminTab === 'users' && !selectedUserDetail && (
                 <div className="space-y-3">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs font-bold text-slate-300">সকল গ্রাহকের তালিকা ও পাসওয়ার্ড</span>
-                    <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-lg">মোট: {usersList.length}</span>
+                  {/* ফোন নম্বর দিয়ে লাইভ সার্চ বার */}
+                  <div className="relative">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                    <input
+                      type="text"
+                      placeholder="ফোন নম্বর বা নাম দিয়ে খুঁজুন..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-2xl pl-9 pr-4 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-red-500"
+                    />
                   </div>
-                  {usersList.map((u) => (
-                    <div key={u.id} className="bg-slate-800/80 border border-slate-700 rounded-2xl p-3 flex items-center justify-between">
+
+                  <div className="flex justify-between items-center text-[11px] text-slate-400 px-1">
+                    <span>ফলাফল: {filteredUsers.length} জন ইউজার</span>
+                    <span>ক্লিক করে সম্পূর্ণ হিস্ট্রি ও ব্যালেন্স মডিফাই করুন</span>
+                  </div>
+
+                  {filteredUsers.map((u) => (
+                    <div 
+                      key={u.id} 
+                      className="bg-slate-800/80 hover:bg-slate-800 border border-slate-700 rounded-2xl p-3.5 flex items-center justify-between transition-all cursor-pointer"
+                      onClick={() => handleOpenUserDetail(u)}
+                    >
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-sm">
-                          {u.name.charAt(0)}
+                        <div className="w-11 h-11 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-sm overflow-hidden border border-indigo-500/40">
+                          {u.avatar ? (
+                            <img src={u.avatar} alt="Profile" className="w-full h-full object-cover" />
+                          ) : (
+                            <span>{u.name.charAt(0)}</span>
+                          )}
                         </div>
                         <div>
                           <h4 className="text-xs font-bold text-white flex items-center gap-2">
                             {u.name}
-                            <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1 rounded">Active</span>
+                            <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-normal">Active</span>
                           </h4>
-                          <p className="text-[11px] text-slate-400">মোবাইল: <span className="text-white font-mono">{u.phone}</span></p>
-                          <p className="text-[11px] text-slate-400">পিন: <span className="text-amber-400 font-mono font-bold">{u.pin}</span> | ব্যালেন্স: ৳{u.mainBalance}</p>
+                          <p className="text-[11px] text-slate-300">নম্বর: <span className="text-white font-mono font-bold">{u.phone}</span></p>
+                          <p className="text-[10px] text-slate-400">
+                            পিন: <span className="text-amber-400 font-mono font-bold">{u.pin}</span> | মেইন: <span className="text-emerald-400">৳{u.mainBalance}</span> | ড্রাইভ: <span className="text-amber-400">৳{u.driveBalance}</span>
+                          </p>
                         </div>
                       </div>
-                      <button onClick={() => setEditingUser(u)} className="p-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-xl">
-                        <Edit3 className="w-4 h-4" />
-                      </button>
+
+                      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => handleOpenUserDetail(u)}
+                          className="p-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-xl"
+                          title="সম্পূর্ণ প্রোফাইল ও ব্যালেন্স দেখুন"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setEditingUser(u)}
+                          className="p-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-xl"
+                          title="এডিট করুন"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   ))}
 
+                  {/* এডিট মডাল */}
                   {editingUser && (
                     <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
                       <div className="bg-slate-900 border border-slate-700 rounded-2xl p-5 max-w-xs w-full space-y-3">
@@ -642,7 +771,145 @@ export const HomeDashboardView: React.FC<HomeDashboardProps> = ({
                 </div>
               )}
 
-              {/* এড মানি সেটিং */}
+              {/* ইউজারের পূর্ণাঙ্গ প্রোফাইল, কাস্টম ব্যালেন্স মডিফিকেশন ও বিস্তারিত হিস্ট্রি ভিউ */}
+              {adminTab === 'users' && selectedUserDetail && (
+                <div className="space-y-4 animate-in fade-in duration-150">
+                  <button 
+                    onClick={() => setSelectedUserDetail(null)}
+                    className="text-xs text-slate-400 hover:text-white flex items-center gap-1 mb-2"
+                  >
+                    ← ইউজার তালিকায় ফিরুন
+                  </button>
+
+                  {/* প্রোফাইল কার্ড */}
+                  <div className="bg-slate-800/90 border border-slate-700 rounded-3xl p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-14 h-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-bold text-lg overflow-hidden border-2 border-indigo-400">
+                        {selectedUserDetail.avatar ? (
+                          <img src={selectedUserDetail.avatar} alt="Profile" className="w-full h-full object-cover" />
+                        ) : (
+                          <span>{selectedUserDetail.name.charAt(0)}</span>
+                        )}
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
+                          {selectedUserDetail.name}
+                          <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full">Active</span>
+                        </h3>
+                        <p className="text-xs text-slate-300 font-mono">📱 {selectedUserDetail.phone}</p>
+                        <p className="text-xs text-amber-400 font-mono">🔑 গোপন পিন: <strong>{selectedUserDetail.pin}</strong></p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => setEditingUser(selectedUserDetail)}
+                      className="p-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-xs flex items-center gap-1"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" /> তথ্য এডিট
+                    </button>
+                  </div>
+
+                  {/* ব্যালেন্স মোডিফিকেশন কার্ড (সরাসরি বক্স ফাঁকা করে ০ বা যেকোনো ব্যালেন্স সেট করা) */}
+                  <div className="bg-slate-800/60 border border-slate-700 rounded-3xl p-4 space-y-3">
+                    <div className="flex justify-between items-center border-b border-slate-700 pb-2">
+                      <h4 className="text-xs font-bold text-slate-200">ব্যালেন্স মোডিফিকেশন প্যানেল</h4>
+                      <span className="text-[10px] text-slate-400">ফাঁকা করে 0 বা নতুন ব্যালেন্স লিখে আপডেট দিন</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 pt-1">
+                      <div className="bg-slate-900 border border-slate-700/80 rounded-2xl p-3">
+                        <label className="text-[10px] text-emerald-400 font-bold block mb-1">মেইন ব্যালেন্স (৳)</label>
+                        <input
+                          type="number"
+                          placeholder="0"
+                          value={customMainBalance}
+                          onChange={(e) => setCustomMainBalance(e.target.value)}
+                          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm font-mono font-bold text-white focus:outline-none focus:border-emerald-500"
+                        />
+                        <p className="text-[9px] text-slate-500 mt-1">বর্তমান: ৳{selectedUserDetail.mainBalance}</p>
+                      </div>
+
+                      <div className="bg-slate-900 border border-slate-700/80 rounded-2xl p-3">
+                        <label className="text-[10px] text-amber-400 font-bold block mb-1">ড্রাইভ ব্যালেন্স (৳)</label>
+                        <input
+                          type="number"
+                          placeholder="0"
+                          value={customDriveBalance}
+                          onChange={(e) => setCustomDriveBalance(e.target.value)}
+                          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm font-mono font-bold text-white focus:outline-none focus:border-amber-500"
+                        />
+                        <p className="text-[9px] text-slate-500 mt-1">বর্তমান: ৳{selectedUserDetail.driveBalance}</p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleSaveModifiedBalance(selectedUserDetail.id)}
+                      className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:opacity-95 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                    >
+                      <Save className="w-4 h-4" /> ব্যালেন্স আপডেট ও নিশ্চিত করুন
+                    </button>
+                  </div>
+
+                  {/* ইউজারের বিস্তারিত হিস্ট্রি ও এড-মানি ক্যাটাগরি রিপোর্ট */}
+                  <div className="bg-slate-800/60 border border-slate-700 rounded-3xl p-4 space-y-3">
+                    <div className="flex justify-between items-center border-b border-slate-700 pb-2">
+                      <h4 className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                        <History className="w-4 h-4 text-indigo-400" /> গ্রাহকের লেনদেন ও এড-মানি বিবরণী
+                      </h4>
+                      <span className="text-[10px] text-slate-400">Main / Drive আলাদা ট্র্যাকিং</span>
+                    </div>
+
+                    {selectedUserDetail.history && selectedUserDetail.history.length > 0 ? (
+                      <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                        {selectedUserDetail.history.map((h: any, i: number) => {
+                          const isAddMoney = h.type === 'add_balance';
+                          const isDriveAdd = h.balanceType === 'drive';
+                          const isMainAdd = h.balanceType === 'main';
+
+                          return (
+                            <div key={i} className="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5 flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-2.5">
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                                  isAddMoney 
+                                    ? isDriveAdd ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400' 
+                                    : 'bg-rose-500/20 text-rose-400'
+                                }`}>
+                                  {isAddMoney ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-1.5">
+                                    <p className="font-bold text-white leading-tight">{h.title}</p>
+                                    {/* কোন ব্যালেন্সে টাকা এড করেছে তা স্পষ্ট ব্যাজে দেখানো */}
+                                    {isAddMoney && (
+                                      <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${
+                                        isDriveAdd ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                      }`}>
+                                        {isDriveAdd ? 'Drive Add' : 'Main Add'}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[10px] text-slate-400 mt-0.5">
+                                    {h.recipientOrSenderNumber} {h.trxId ? `• TrxID: ${h.trxId}` : ''} • {h.timestamp}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className={`font-mono font-bold ${isAddMoney ? (isDriveAdd ? 'text-amber-400' : 'text-emerald-400') : 'text-slate-200'}`}>
+                                  {isAddMoney ? '+' : '-'}৳{h.amount}
+                                </p>
+                                <span className="text-[9px] text-emerald-400 bg-emerald-500/10 px-1 rounded">{h.status}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="text-center py-6 text-slate-500 text-xs">এখনো কোনো লেনদেনের তথ্য নেই</div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ২. এড মানি সেটিং */}
               {adminTab === 'add_money' && (
                 <div className="space-y-4">
                   <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-4 flex items-center justify-between">
@@ -684,7 +951,7 @@ export const HomeDashboardView: React.FC<HomeDashboardProps> = ({
                 </div>
               )}
 
-              {/* অফার কন্ট্রোল */}
+              {/* ৩. অফার কন্ট্রোল */}
               {adminTab === 'offers' && (
                 <div className="space-y-4">
                   <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-4 space-y-3">
@@ -715,7 +982,7 @@ export const HomeDashboardView: React.FC<HomeDashboardProps> = ({
                 </div>
               )}
 
-              {/* লাইভ চ্যাট */}
+              {/* ৪. লাইভ চ্যাট */}
               {adminTab === 'chats' && (
                 <div className="h-[360px] flex gap-3">
                   <div className="w-1/3 border-r border-slate-800 pr-2 space-y-2 overflow-y-auto">
@@ -771,7 +1038,7 @@ export const HomeDashboardView: React.FC<HomeDashboardProps> = ({
                 </div>
               )}
 
-              {/* সোশ্যাল লিংক */}
+              {/* ৫. সোশ্যাল লিংক */}
               {adminTab === 'links' && (
                 <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-4 space-y-3">
                   <h4 className="text-xs font-bold text-white border-b border-slate-700 pb-2">সোশ্যাল সাপোর্ট লিঙ্ক কনফিগার</h4>
