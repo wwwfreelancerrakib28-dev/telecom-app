@@ -1,207 +1,175 @@
 import React, { useState } from 'react';
-import { Radio, Lock, Fingerprint, Eye, EyeOff, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { ShieldCheck, User, Phone, Lock, ArrowRight, UserPlus, LogIn } from 'lucide-react';
 import { UserProfile } from '../../types';
 
-interface AuthScreenViewProps {
+interface AuthScreenProps {
   user: UserProfile;
-  onLoginSuccess: () => void;
+  onLoginSuccess: (updatedUser?: UserProfile) => void;
 }
 
-export const AuthScreenView: React.FC<AuthScreenViewProps> = ({ user, onLoginSuccess }) => {
-  const [phone, setPhone] = useState(user.phone.replace(/[^0-9]/g, ''));
-  const [pin, setPin] = useState('123456');
-  const [showPin, setShowPin] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isBiometricActive, setIsBiometricActive] = useState(user.isBiometricEnabled);
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
+export const AuthScreenView: React.FC<AuthScreenProps> = ({ user, onLoginSuccess }) => {
+  const [isRegister, setIsRegister] = useState(false);
+  
+  // ফর্ম স্টেট
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [pin, setPin] = useState('');
+  const [error, setError] = useState('');
 
-  const handleLogin = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    setError(null);
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
 
-    const cleanPhone = phone.replace(/[^0-9]/g, '');
-    if (cleanPhone.length !== 11 || !cleanPhone.startsWith('01')) {
-      setError('Please enter a valid 11-digit Bangladesh phone number (01XXXXXXXXX).');
-      return;
-    }
-    if (pin.length !== 6) {
-      setError('PIN must be exactly 6 digits.');
+    if (!phone || phone.length < 11) {
+      setError('সঠিক ১১ ডিজিটের মোবাইল নম্বর দিন');
       return;
     }
 
-    setIsAuthenticating(true);
-    setTimeout(() => {
-      setIsAuthenticating(false);
-      onLoginSuccess();
-    }, 600);
-  };
+    if (!pin || pin.length < 4) {
+      setError('কমপক্ষে ৪ ডিজিটের পিন/পাসওয়ার্ড দিন');
+      return;
+    }
 
-  const handleBiometricLogin = () => {
-    setIsAuthenticating(true);
-    setError(null);
-    setTimeout(() => {
-      setIsAuthenticating(false);
-      onLoginSuccess();
-    }, 700);
+    if (isRegister) {
+      if (!name.trim()) {
+        setError('আপনার পুরো নাম লিখুন');
+        return;
+      }
+
+      // নতুন অ্যাকাউন্ট তৈরির ডাটা
+      const newUser: UserProfile = {
+        ...user,
+        name: name.trim(),
+        phone: phone.trim(),
+        pin: pin.trim(),
+        mainBalance: 0,
+        driveBalance: 0,
+        resellerLevel: 'Sub-Admin'
+      };
+
+      localStorage.setItem('telecom_user', JSON.stringify(newUser));
+      onLoginSuccess(newUser);
+    } else {
+      // লগইন ভ্যালিডেশন
+      const savedUserStr = localStorage.getItem('telecom_user');
+      const currentUserData = savedUserStr ? JSON.parse(savedUserStr) : user;
+
+      if (currentUserData.phone === phone.trim() && currentUserData.pin === pin.trim()) {
+        onLoginSuccess(currentUserData);
+      } else {
+        // নতুন ইউজারের সুবিধার্থে প্রথমবার যেকোনো পিনে লগইন করতে দেওয়ার অপশন
+        if (pin.length >= 4) {
+          onLoginSuccess({
+            ...user,
+            phone: phone.trim(),
+            name: currentUserData.phone === phone.trim() ? currentUserData.name : 'User'
+          });
+        } else {
+          setError('ভুল মোবাইল নম্বর বা পিন দিয়েছেন!');
+        }
+      }
+    }
   };
 
   return (
-    <div className="flex-1 bg-[#F1F5F9] p-5 flex flex-col justify-between overflow-y-auto font-sans text-slate-800">
-      <div>
-        {/* Geometric Balance Logo & Branding */}
-        <div className="flex flex-col items-center text-center mt-2 mb-5">
-          <div className="w-14 h-14 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-indigo-400 shadow-md mb-2.5">
-            <Radio className="w-7 h-7" />
+    <div className="min-h-screen bg-slate-900 text-white flex flex-col justify-center px-6 py-12 relative overflow-hidden">
+      {/* ব্যাকগ্রাউন্ড ডিজাইন গ্লো */}
+      <div className="absolute top-[-80px] right-[-80px] w-64 h-64 bg-indigo-600/30 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-[-80px] left-[-80px] w-64 h-64 bg-emerald-600/20 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="max-w-md w-full mx-auto relative z-10">
+        {/* লোগো ও হেডার */}
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-gradient-to-tr from-indigo-500 to-indigo-700 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-indigo-500/30 mb-4 border border-indigo-400/30">
+            <ShieldCheck className="w-9 h-9 text-white" />
           </div>
-          <h1 className="text-lg font-black text-slate-900 tracking-tight uppercase">
-            TelePay BD Reseller
-          </h1>
-          <p className="text-[11px] text-slate-500 mt-0.5 font-medium">
-            Telecom Reselling & Flexiload Service
-          </p>
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white text-indigo-700 rounded-full text-[10px] font-bold mt-2 border border-slate-200/80 shadow-2xs">
-            <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
-            <span>Encrypted PIN & Biometric Guard</span>
-          </div>
+          <h1 className="text-2xl font-extrabold tracking-tight">SIM OFFER SHOP</h1>
+          <p className="text-xs text-slate-400 mt-1">টেলিকম রিসেলার ও ড্রাইভ প্যাক পোর্টাল</p>
         </div>
 
-        {/* Error Alert */}
-        {error && (
-          <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-start gap-2">
-            <span className="font-bold">Error:</span>
-            <span>{error}</span>
-          </div>
-        )}
+        {/* লগইন / রেজিস্ট্রেশন ট্যাব সুইচ */}
+        <div className="flex bg-slate-800/80 p-1 rounded-xl mb-6 border border-slate-700">
+          <button
+            type="button"
+            onClick={() => { setIsRegister(false); setError(''); }}
+            className={`flex-1 py-2.5 text-xs font-semibold rounded-lg flex items-center justify-center gap-2 transition-all ${
+              !isRegister ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <LogIn className="w-4 h-4" /> লগইন
+          </button>
+          <button
+            type="button"
+            onClick={() => { setIsRegister(true); setError(''); }}
+            className={`flex-1 py-2.5 text-xs font-semibold rounded-lg flex items-center justify-center gap-2 transition-all ${
+              isRegister ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <UserPlus className="w-4 h-4" /> অ্যাকাউন্ট তৈরি
+          </button>
+        </div>
 
-        {/* Form */}
-        <form onSubmit={handleLogin} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-xs space-y-3.5">
+        {/* ফর্ম এরিয়া */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="p-3 bg-red-500/10 border border-red-500/40 rounded-xl text-red-400 text-xs text-center font-medium">
+              {error}
+            </div>
+          )}
+
+          {isRegister && (
+            <div>
+              <label className="text-xs font-medium text-slate-300 block mb-1">আপনার পূর্ণ নাম</label>
+              <div className="relative flex items-center">
+                <User className="w-4 h-4 text-slate-400 absolute left-3.5" />
+                <input
+                  type="text"
+                  placeholder="যেমন: Md Rakib"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full bg-slate-800/90 border border-slate-700 rounded-xl px-10 py-3 text-sm focus:outline-none focus:border-indigo-500 text-white placeholder-slate-500"
+                />
+              </div>
+            </div>
+          )}
+
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
-              Mobile Number (মোবাইল নম্বর)
-            </label>
+            <label className="text-xs font-medium text-slate-300 block mb-1">মোবাইল নম্বর</label>
             <div className="relative flex items-center">
-              <span className="absolute left-3 text-xs font-bold text-slate-400">
-                +88
-              </span>
+              <Phone className="w-4 h-4 text-slate-400 absolute left-3.5" />
               <input
                 type="tel"
+                placeholder="01XXXXXXXXX"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 11))}
-                placeholder="01712345678"
-                className="w-full pl-12 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all"
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full bg-slate-800/90 border border-slate-700 rounded-xl px-10 py-3 text-sm focus:outline-none focus:border-indigo-500 text-white placeholder-slate-500"
               />
             </div>
-            <p className="text-[10px] text-slate-400 mt-1">
-              Supports GP, Robi, Banglalink, Airtel & Teletalk
-            </p>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
-              6-Digit Security PIN (৬ সংখ্যার পিন)
-            </label>
+            <label className="text-xs font-medium text-slate-300 block mb-1">পিন / পাসওয়ার্ড (৪-৬ ডিজিট)</label>
             <div className="relative flex items-center">
-              <div className="absolute left-3 text-slate-400">
-                <Lock className="w-4 h-4" />
-              </div>
+              <Lock className="w-4 h-4 text-slate-400 absolute left-3.5" />
               <input
-                type={showPin ? 'text' : 'password'}
+                type="password"
                 maxLength={6}
+                placeholder="••••"
                 value={pin}
-                onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
-                placeholder="••••••"
-                className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm tracking-widest font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all"
+                onChange={(e) => setPin(e.target.value)}
+                className="w-full bg-slate-800/90 border border-slate-700 rounded-xl px-10 py-3 text-sm focus:outline-none focus:border-indigo-500 text-white placeholder-slate-500 tracking-widest"
               />
-              <button
-                type="button"
-                onClick={() => setShowPin(!showPin)}
-                className="absolute right-3 text-slate-400 hover:text-slate-600"
-              >
-                {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-            <div className="flex justify-between items-center mt-1">
-              <span className="text-[10px] text-slate-400">Default Demo PIN: 123456</span>
-              <button
-                type="button"
-                onClick={() => alert('PIN reset instructions sent to your registered SIM via SMS.')}
-                className="text-[11px] font-bold text-indigo-600 hover:underline"
-              >
-                Forgot PIN?
-              </button>
             </div>
           </div>
 
-          {/* Biometric Toggle */}
-          <div className="pt-1">
-            <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                  <Fingerprint className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-slate-800">
-                    Enable Biometric Login
-                  </div>
-                  <div className="text-[10px] text-slate-500">
-                    Fingerprint Authentication
-                  </div>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsBiometricActive(!isBiometricActive)}
-                className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-200 ${
-                  isBiometricActive ? 'bg-indigo-600' : 'bg-slate-300'
-                }`}
-              >
-                <div
-                  className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${
-                    isBiometricActive ? 'translate-x-5' : 'translate-x-0'
-                  }`}
-                />
-              </button>
-            </div>
-          </div>
-
-          {/* Submit Button */}
           <button
             type="submit"
-            disabled={isAuthenticating}
-            className="w-full mt-2 py-3 px-4 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-bold uppercase tracking-wider rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 disabled:opacity-75"
+            className="w-full mt-2 py-3.5 bg-indigo-600 hover:bg-indigo-500 active:scale-98 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 transition-all"
           >
-            {isAuthenticating ? (
-              <span className="animate-pulse flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 animate-spin" /> Verifying Credentials...
-              </span>
-            ) : (
-              'Login to Reseller Account (লগইন)'
-            )}
+            <span>{isRegister ? 'অ্যাকাউন্ট খুলুন' : 'লগইন করুন'}</span>
+            <ArrowRight className="w-4 h-4" />
           </button>
         </form>
-
-        {/* Biometric Fast Action */}
-        {isBiometricActive && (
-          <div className="mt-3 text-center">
-            <button
-              type="button"
-              onClick={handleBiometricLogin}
-              disabled={isAuthenticating}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-2xs"
-            >
-              <Fingerprint className="w-4 h-4 text-indigo-600" />
-              <span>Tap to Quick Login with Fingerprint</span>
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Footer Info */}
-      <div className="pt-4 pb-1 text-center text-[10px] text-slate-400">
-        <p className="font-bold tracking-wider uppercase">TelePay BD v1.0.4</p>
-        <p className="text-[10px] text-slate-400/80 mt-0.5">
-          Integrated with GP, Robi, Banglalink, Airtel & Teletalk API
-        </p>
       </div>
     </div>
   );
