@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { db } from './firebase';
-import { ref, set, push, onValue, update } from 'firebase/database';
+import { ref, set, push, onValue, update, get, child } from 'firebase/database';
 import { 
   Send, Flame, Wallet, History, MessageSquare, Bell, LogOut, ArrowLeft, 
   Ticket, Copy, Check, XCircle, User as UserIcon, Facebook, MessageCircle, 
@@ -43,7 +43,7 @@ export default function UserApp() {
   const [addAmount, setAddAmount] = useState('');
   const [trxId, setTrxId] = useState('');
   const [copiedNum, setCopiedNum] = useState(false);
-  const [addMoneyNote, setAddMoneyNote] = useState('প্রথমে নাম্বারে টাকা পাঠিয়ে ট্রানজ্যাকশন আইডি দিন।');
+  const [addMoneyNote, setAddMoneyNote] = useState('প্রথমে নাম্বারে টাকা পাঠিয়ে ট্রানজ্যাকশন আইডি দিন।');
 
   const [isHoldingAddMoney, setIsHoldingAddMoney] = useState(false);
   const [holdAddMoneyProgress, setHoldAddMoneyProgress] = useState(0);
@@ -76,7 +76,6 @@ export default function UserApp() {
 
   const [historyTab, setHistoryTab] = useState<'add_money' | 'flexiload' | 'drive'>('add_money');
   
-  // লাইভ চ্যাট বাধ্যতামূলক নম্বর ভেরিফিকেশন
   const [chatVerified, setChatVerified] = useState(false);
   const [chatPhoneInput, setChatPhoneInput] = useState('');
   const [chatMessages, setChatMessages] = useState<any[]>([]);
@@ -164,42 +163,106 @@ export default function UserApp() {
     }
   };
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  // ডাটাবেজ থেকে রিয়েল চেক করে লগইন করার ফাংশন
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputPhone || inputPhone.length < 11 || !inputPin) {
       return alert('সঠিক মোবাইল নম্বর এবং পিন দিন!');
     }
-    const loggedUser = {
-      id: '1', name: 'Md. Tanvir Hasan', phone: inputPhone, pin: inputPin, balance: 1500, profilePic: '', division: 'ঢাকা', district: 'ঢাকা'
-    };
-    setUserProfile(loggedUser);
-    setChatPhoneInput(inputPhone);
-    setChatVerified(true);
-    localStorage.setItem('sim_offer_user', JSON.stringify(loggedUser));
-    setIsLoggedIn(true);
-    setPopupAlert('🎉 SIM OFFER SHOP এ আপনাকে স্বাগতম!');
+
+    try {
+      const dbRef = ref(db);
+      const snapshot = await get(child(dbRef, 'users'));
+      
+      if (snapshot.exists()) {
+        const usersData = snapshot.val();
+        let matchedUser: any = null;
+
+        Object.keys(usersData).forEach((key) => {
+          const user = usersData[key];
+          if (user.phone === inputPhone) {
+            matchedUser = { id: key, ...user };
+          }
+        });
+
+        if (!matchedUser) {
+          return alert('❌ এই নম্বরে কোনো অ্যাকাউন্ট রেজিস্টার্ড নেই!');
+        }
+
+        if (matchedUser.pin !== inputPin) {
+          return alert('❌ ভুল পিন দেওয়া হয়েছে! সঠিক পিন দিয়ে আবার চেষ্টা করুন।');
+        }
+
+        // সফল লগইন
+        setUserProfile(matchedUser);
+        setChatPhoneInput(matchedUser.phone);
+        setChatVerified(true);
+        localStorage.setItem('sim_offer_user', JSON.stringify(matchedUser));
+        setIsLoggedIn(true);
+        setPopupAlert('🎉 SIM OFFER SHOP এ আপনাকে স্বাগতম!');
+      } else {
+        alert('❌ কোনো অ্যাকাউন্ট পাওয়া যায়নি!');
+      }
+    } catch (error) {
+      console.error(error);
+      alert('লগইন করার সময় সমস্যা হয়েছে। আবার চেষ্টা করুন।');
+    }
   };
 
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+  // একাউন্ট তৈরি এবং সফল মেসেজ দেখানোর পর লগইন পেজে রিডাইরেক্ট করার ফাংশন
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputName || !inputPhone || inputPhone.length < 11 || !inputPin || !inputPic || !inputDivision || !inputDistrict) {
-      return alert('⚠️ দয়া করে নাম, নম্বর, পিন, প্রফাইল ছবি, বিভাগ এবং জেলা—সবগুলো ঘর অবশ্যই পূরণ করুন!');
+      return alert('⚠️ দয়া করে নাম, নম্বর, পিন, প্রফাইল ছবি, বিভাগ এবং জেলা—সবগুলো ঘর অবশ্যই পূরণ করুন!');
     }
-    const newUser = {
-      id: Date.now().toString(), name: inputName, phone: inputPhone, pin: inputPin, balance: 500, profilePic: inputPic, division: inputDivision, district: inputDistrict
-    };
-    push(ref(db, 'users'), newUser);
-    
-    // সফলভাবে একাউন্ট তৈরি হওয়ার পর পপআপ দেখিয়ে লগইন পেজে বা অটো লগইন করা
-    setPopupAlert('✅ আপনার অ্যাকাউন্টটি সফলভাবে তৈরি করা হয়েছে!');
-    setTimeout(() => {
-      setUserProfile(newUser);
-      setChatPhoneInput(newUser.phone);
-      setChatVerified(true);
-      localStorage.setItem('sim_offer_user', JSON.stringify(newUser));
-      setIsLoggedIn(true);
-      setPopupAlert('🎉 SIM OFFER SHOP এ আপনাকে স্বাগতম!');
-    }, 1500);
+
+    try {
+      // চেক করা যে এই নম্বর দিয়ে ইতিমধ্যে কোনো অ্যাকাউন্ট আছে কি না
+      const dbRef = ref(db);
+      const snapshot = await get(child(dbRef, 'users'));
+      
+      if (snapshot.exists()) {
+        const usersData = snapshot.val();
+        let phoneExists = false;
+        Object.keys(usersData).forEach((key) => {
+          if (usersData[key].phone === inputPhone) {
+            phoneExists = true;
+          }
+        });
+
+        if (phoneExists) {
+          return alert('⚠️ এই মোবাইল নম্বর দিয়ে ইতিমধ্যে একটি অ্যাকাউন্ট তৈরি করা আছে!');
+        }
+      }
+
+      const newUser = {
+        name: inputName, 
+        phone: inputPhone, 
+        pin: inputPin, 
+        balance: 500, // নতুন একাউন্টের ডিফল্ট ব্যালেন্স
+        profilePic: inputPic, 
+        division: inputDivision, 
+        district: inputDistrict
+      };
+
+      await push(ref(db, 'users'), newUser);
+      
+      // সফলভাবে একাউন্ট তৈরি হওয়ার পর পপআপ দেখানো
+      setPopupAlert('✅ আপনার একাউন্ট সফলভাবে তৈরি হয়েছে! এখন লগইন করুন।');
+      
+      // ইনপুট ফিল্ডগুলো খালি করা এবং লগইন ভিউতে নিয়ে যাওয়া
+      setInputPhone('');
+      setInputPin('');
+      setInputName('');
+      setInputPic('');
+      setInputDivision('');
+      setInputDistrict('');
+      setAuthView('login');
+
+    } catch (error) {
+      console.error(error);
+      alert('রেজিস্ট্রেশন করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
+    }
   };
 
   const handleLogout = () => {
@@ -229,7 +292,7 @@ export default function UserApp() {
   const executeAddMoney = () => {
     setIsHoldingAddMoney(false);
     setHoldAddMoneyProgress(0);
-    if (!addMoneyEnabled) return alert('বর্তমানে এড মানি সার্ভিস বন্ধ রয়েছে!');
+    if (!addMoneyEnabled) return alert('বর্তমানে এড মানি সার্ভিস বন্ধ রয়েছে!');
     if (!addAmount || Number(addAmount) <= 0) return alert('সঠিক পরিমাণ লিখুন!');
     if (!trxId || trxId.length < 5) return alert('সঠিক TrxID লিখুন!');
 
@@ -240,7 +303,7 @@ export default function UserApp() {
       userName: userProfile.name, userPhone: userProfile.phone, method: selectedMethod,
       amount: Number(addAmount), trxId: trxId.toUpperCase(), time: timeStr, status: 'Pending'
     });
-    setPopupAlert('আপনার Add Money রিকোয়েস্ট Success হয়েছে, অল্প সময়ের মধ্যে ব্যালেন্স এড হয়ে যাবে।');
+    setPopupAlert('আপনার Add Money রিকোয়েস্ট Success হয়েছে, অল্প সময়ের মধ্যে ব্যালেন্স এড হয়ে যাবে।');
     setAddAmount(''); setTrxId('');
   };
 
@@ -262,7 +325,7 @@ export default function UserApp() {
     setHoldFlexiProgress(0);
     if (!flexiPhone || flexiPhone.length < 11) return alert('সঠিক নম্বর দিন!');
     if (!flexiAmount || Number(flexiAmount) <= 0) return alert('টাকার পরিমাণ দিন!');
-    if (flexiPin !== userProfile.pin) return alert('পিন সঠিক নয়!');
+    if (flexiPin !== userProfile.pin) return alert('পিন সঠিক নয়!');
     if (userProfile.balance < Number(flexiAmount)) return alert('পর্যাপ্ত ব্যালেন্স নেই!');
 
     const newBal = userProfile.balance - Number(flexiAmount);
@@ -276,7 +339,7 @@ export default function UserApp() {
       amount: Number(flexiAmount), targetNumber: flexiPhone, time: timeStr,
       status: 'Pending', note: simType
     });
-    setPopupAlert('🚀 আপনার ফ্লেক্সিলোড Success হয়েছে, অল্প সময়ের মধ্যে চলে যাবে।');
+    setPopupAlert('🚀 আপনার ফ্লেক্সিলোড Success হয়েছে, অল্প সময়ের মধ্যে চলে যাবে।');
     setFlexiPhone(''); setFlexiAmount(''); setFlexiPin('');
   };
 
@@ -291,7 +354,7 @@ export default function UserApp() {
 
   const handlePullToRefresh = () => {
     setIsRefreshing(true);
-    setTimeout(() => { setIsRefreshing(false); setPopupAlert('✨ অ্যাপ ডাটা সফলভাবে রিফ্রেশ হয়েছে!'); }, 1000);
+    setTimeout(() => { setIsRefreshing(false); setPopupAlert('✨ অ্যাপ ডাটা সফলভাবে রিফ্রেশ হয়েছে!'); }, 1000);
   };
 
   const handleSendChatMessage = () => {
@@ -321,7 +384,7 @@ export default function UserApp() {
       status: 'Pending', note: 'Scratch Card: ' + buyingCard.title
     });
 
-    setPopupAlert(`⏳ কার্ড ক্রয়ের রিকোয়েস্ট সফলভাবে জমা হয়েছে!`);
+    setPopupAlert(`⏳ কার্ড ক্রয়ের রিকোয়েস্ট সফলভাবে জমা হয়েছে!`);
     setBuyingCard(null); setTargetCardNumber('');
   };
 
@@ -343,18 +406,18 @@ export default function UserApp() {
       time: timeStr, status: 'Pending', hasLoan: false
     });
 
-    setPopupAlert(`⏳ ড্রাইভ অর্ডার সফলভাবে সাবমিট হয়েছে!`);
+    setPopupAlert(`⏳ ড্রাইভ অর্ডার সফলভাবে সাবমিট হয়েছে!`);
     setOrderingOffer(null); setTargetDriveNumber(''); setHasSimLoan(null);
   };
 
   const handleUpdatePin = () => {
-    if (oldPinInput !== userProfile.pin) return alert('পুরনো পিন সঠিক নয়!');
+    if (oldPinInput !== userProfile.pin) return alert('পুরনো পিন সঠিক নয়!');
     if (!newPinInput || newPinInput.length < 4) return alert('নতুন পিন কমপক্ষে ৪ ডিজিটের হতে হবে!');
     const updated = { ...userProfile, pin: newPinInput };
     setUserProfile(updated);
     localStorage.setItem('sim_offer_user', JSON.stringify(updated));
     setOldPinInput(''); setNewPinInput('');
-    alert('✅ পিন সফলভাবে পরিবর্তন করা হয়েছে!');
+    alert('✅ পিন সফলভাবে পরিবর্তন করা হয়েছে!');
   };
 
   useEffect(() => {
@@ -384,7 +447,7 @@ export default function UserApp() {
           </div>
           <div>
             <h2 className="text-base font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-pink-300 via-purple-200 to-indigo-300">SIM OFFER SHOP</h2>
-            <p className="text-[11px] text-pink-200/70 mt-1">প্রিমিয়াম টেলিযোগাযোগ সেবা</p>
+            <p className="text-[11px] text-pink-200/70 mt-1">প্রিমিয়াম টেলিযোগাযোগ সেবা</p>
           </div>
 
           <div className="grid grid-cols-2 gap-1.5 bg-black/40 p-1 rounded-2xl border border-white/10">
@@ -423,7 +486,7 @@ export default function UserApp() {
                 <div className="flex items-center gap-2 bg-black/40 border border-white/15 rounded-xl p-2">
                   <input type="file" accept="image/*" onChange={handleImageUpload} className="w-full text-[10px] text-slate-300 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-pink-600 file:text-white hover:file:bg-pink-700 cursor-pointer" />
                 </div>
-                {inputPic && <p className="text-[9px] text-emerald-400 mt-1">✓ ছবি সফলভাবে সিলেক্ট হয়েছে</p>}
+                {inputPic && <p className="text-[9px] text-emerald-400 mt-1">✓ ছবি সফলভাবে সিলেক্ট হয়েছে</p>}
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -439,6 +502,17 @@ export default function UserApp() {
             </form>
           )}
         </div>
+        {popupAlert && (
+          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="bg-[#18133a] border border-white/15 rounded-3xl p-6 max-w-xs w-full text-center space-y-4 shadow-2xl text-white">
+              <div className="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto border border-emerald-500/30 shadow-inner">
+                <Check className="w-7 h-7 stroke-[3]" />
+              </div>
+              <h4 className="text-xs font-black leading-relaxed text-slate-200">{popupAlert}</h4>
+              <button onClick={() => setPopupAlert(null)} className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-xl shadow-lg active:scale-95">ঠিক আছে</button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -453,7 +527,7 @@ export default function UserApp() {
             </div>
             <h3 className="text-base font-black">নতুন আপডেট এসেছে!</h3>
             <p className="text-[11px] text-slate-300 leading-relaxed">
-              অ্যাপের সিকিউরিটি ও নতুন ফিচার উপভোগ করতে দয়া করে এখনই অ্যাপটি আপডেট করে নিন।
+              অ্যাপের সিকিউরিটি ও নতুন ফিচার উপভোগ করতে দয়া করে এখনই অ্যাপটি আপডেট করে নিন।
             </p>
             <a href={forceUpdate.link} target="_blank" rel="noreferrer" className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-black text-xs rounded-xl shadow-lg flex items-center justify-center gap-2">
               এখনই আপডেট করুন <Download className="w-4 h-4" />
@@ -462,7 +536,6 @@ export default function UserApp() {
         </div>
       )}
 
-      {/* হেডার: আইকনগুলো শুধুমাত্র হোমপেজে (menu) শো করবে */}
       <header className="bg-[#141032]/80 backdrop-blur-xl border-b border-white/10 px-4 py-3.5 flex items-center justify-between sticky top-0 z-20 shadow-lg">
         <div className="flex items-center gap-3">
           {activeSection !== 'menu' ? (
@@ -529,7 +602,6 @@ export default function UserApp() {
           </div>
         )}
 
-        {/* প্রফাইল অপশন (নাম, ছবি, নাম্বার, জেলা ও বিভাগসহ) */}
         {activeSection === 'profile' && (
           <div className="space-y-4">
             <div className="bg-[#141032] border border-white/10 rounded-3xl p-5 text-center space-y-3 shadow-xl">
@@ -551,7 +623,6 @@ export default function UserApp() {
               </div>
             </div>
 
-            {/* পিন পরিবর্তন মডিউল */}
             <div className="bg-[#141032] border border-white/10 rounded-3xl p-4 space-y-3 shadow-xl">
               <h4 className="font-bold text-white border-b border-white/10 pb-2 flex items-center gap-1.5"><Key className="w-4 h-4 text-indigo-400" /> পিন পরিবর্তন করুন</h4>
               <div>
@@ -567,15 +638,14 @@ export default function UserApp() {
           </div>
         )}
 
-        {/* এড ব্যালেন্স পেজ */}
         {activeSection === 'add_balance' && (
           <div className="space-y-3.5">
-            {!addMoneyEnabled && <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-3 text-rose-300 font-bold text-center">⚠️ বর্তমানে Add Balance সার্ভিস বন্ধ রয়েছে।</div>}
+            {!addMoneyEnabled && <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-3 text-rose-300 font-bold text-center">⚠️ বর্তমানে Add Balance সার্ভিস বন্ধ রয়েছে।</div>}
             
             <div className="bg-indigo-500/10 border border-indigo-500/30 rounded-2xl p-3 space-y-1">
               <div className="flex items-center gap-1.5 text-indigo-300 font-bold text-[11px]">
                 <FileText className="w-4 h-4 text-indigo-400 shrink-0" />
-                <span>নির্দেশিকা ও নিয়মাবলী:</span>
+                <span>নির্দেশিকা ও নিয়মাবলী:</span>
               </div>
               <p className="text-[11px] text-slate-300 pl-5 leading-relaxed">{addMoneyNote}</p>
             </div>
@@ -598,7 +668,7 @@ export default function UserApp() {
                 </div>
                 <button onClick={() => handleCopyPaymentNum(selectedMethod === 'bKash' ? paymentNumbers.bkash : selectedMethod === 'Nagad' ? paymentNumbers.nagad : paymentNumbers.rocket)} className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-[10px] font-bold flex items-center gap-1 active:scale-95 shadow">
                   {copiedNum ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedNum ? 'কপি হয়েছে!' : 'নম্বর কপি'}</span>
+                  <span>{copiedNum ? 'কপি হয়েছে!' : 'নম্বর কপি'}</span>
                 </button>
               </div>
 
@@ -626,7 +696,6 @@ export default function UserApp() {
           </div>
         )}
 
-        {/* ফ্লেক্সিলোড */}
         {activeSection === 'flexiload' && (
           <div className="bg-[#141032] border border-white/10 rounded-3xl p-4 space-y-4 shadow-xl text-white">
             <h4 className="font-bold border-b border-white/10 pb-2 flex items-center justify-between">
@@ -673,14 +742,13 @@ export default function UserApp() {
           </div>
         )}
 
-        {/* ড্রাইভ প্যাক */}
         {activeSection === 'drive' && (
           <div className="space-y-3">
             {!masterDriveEnabled || simStatus[selectedDriveOp] === false ? (
               <div className="bg-rose-500/10 border border-rose-500/30 text-rose-300 rounded-3xl p-6 text-center space-y-2 shadow-xl">
                 <AlertCircle className="w-10 h-10 mx-auto text-rose-400" />
-                <h4 className="font-black text-sm">⚠️ ড্রাইভ অফার সাময়িকভাবে বন্ধ আছে</h4>
-                <p className="text-[11px] text-rose-400/80">দুঃখিত! এই মুহূর্তে অ্যাডমিন কর্তৃক ড্রাইভ অফারগুলো বন্ধ রাখা হয়েছে।</p>
+                <h4 className="font-black text-sm">⚠️ ড্রাইভ অফার সাময়িকভাবে বন্ধ আছে</h4>
+                <p className="text-[11px] text-rose-400/80">দুঃখিত! এই মুহূর্তে অ্যাডমিন কর্তৃক ড্রাইভ অফারগুলো বন্ধ রাখা হয়েছে।</p>
               </div>
             ) : (
               <>
@@ -740,7 +808,6 @@ export default function UserApp() {
           </div>
         )}
 
-        {/* স্ক্র্যাচ কার্ড */}
         {activeSection === 'scratch' && (
           <div className="space-y-3">
             <h4 className="font-bold text-slate-300 px-1">স্ক্র্যাচ কার্ড অফারসমূহ</h4>
@@ -780,7 +847,6 @@ export default function UserApp() {
           </div>
         )}
 
-        {/* নোটিফিকেশন */}
         {activeSection === 'notifications' && (
           <div className="space-y-3">
             <h4 className="font-bold text-slate-300 px-1">নোটিফিকেশন ইনবক্স ({notifications.length})</h4>
@@ -797,7 +863,6 @@ export default function UserApp() {
           </div>
         )}
 
-        {/* সাপোর্ট */}
         {activeSection === 'support' && (
           <div className="bg-[#141032] border border-white/10 rounded-3xl p-5 text-center space-y-3 shadow-xl">
             <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto shadow-inner"><HelpCircle className="w-6 h-6" /></div>
@@ -809,7 +874,6 @@ export default function UserApp() {
           </div>
         )}
 
-        {/* হিস্ট্রি */}
         {activeSection === 'history' && (
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-1 bg-[#141032] border border-white/10 p-1.5 rounded-2xl shadow-inner">
@@ -865,7 +929,6 @@ export default function UserApp() {
           </div>
         )}
 
-        {/* লাইভ চ্যাট (অটো অ্যাকাউন্ট নম্বর বাইন্ডড) */}
         {activeSection === 'chats' && (
           <div className="bg-[#141032] border border-white/10 rounded-3xl p-4 h-[420px] flex flex-col shadow-xl text-white">
             <div className="border-b border-white/10 pb-2 mb-2 flex items-center justify-between">
