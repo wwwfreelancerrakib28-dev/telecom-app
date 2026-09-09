@@ -25,7 +25,7 @@ export default function UserApp() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   const [userProfile, setUserProfile] = useState({
-    id: '1', name: 'Md. Tanvir Hasan', phone: '01712345678', pin: '1234', balance: 4770, profilePic: '', division: 'ঢাকা', district: 'ঢাকা'
+    id: '', name: '', phone: '', pin: '', balance: 500, profilePic: '', division: '', district: ''
   });
 
   const [showBalance, setShowBalance] = useState(false);
@@ -75,13 +75,20 @@ export default function UserApp() {
   const [holdFlexiProgress, setHoldFlexiProgress] = useState(0);
 
   const [historyTab, setHistoryTab] = useState<'add_money' | 'flexiload' | 'drive'>('add_money');
+  
+  // লাইভ চ্যাট বাধ্যতামূলক নম্বর ভেরিফিকেশন
+  const [chatVerified, setChatVerified] = useState(false);
+  const [chatPhoneInput, setChatPhoneInput] = useState('');
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState('');
 
   useEffect(() => {
     const savedUser = localStorage.getItem('sim_offer_user');
     if (savedUser) {
-      setUserProfile(JSON.parse(savedUser));
+      const parsed = JSON.parse(savedUser);
+      setUserProfile(parsed);
+      setChatPhoneInput(parsed.phone);
+      setChatVerified(true);
       setIsLoggedIn(true);
     }
   }, []);
@@ -166,8 +173,11 @@ export default function UserApp() {
       id: '1', name: 'Md. Tanvir Hasan', phone: inputPhone, pin: inputPin, balance: 1500, profilePic: '', division: 'ঢাকা', district: 'ঢাকা'
     };
     setUserProfile(loggedUser);
+    setChatPhoneInput(inputPhone);
+    setChatVerified(true);
     localStorage.setItem('sim_offer_user', JSON.stringify(loggedUser));
     setIsLoggedIn(true);
+    setPopupAlert('🎉 SIM OFFER SHOP এ আপনাকে স্বাগতম!');
   };
 
   const handleRegisterSubmit = (e: React.FormEvent) => {
@@ -178,11 +188,18 @@ export default function UserApp() {
     const newUser = {
       id: Date.now().toString(), name: inputName, phone: inputPhone, pin: inputPin, balance: 500, profilePic: inputPic, division: inputDivision, district: inputDistrict
     };
-    setUserProfile(newUser);
-    localStorage.setItem('sim_offer_user', JSON.stringify(newUser));
     push(ref(db, 'users'), newUser);
-    setIsLoggedIn(true);
-    alert('🎉 অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে!');
+    
+    // সফলভাবে একাউন্ট তৈরি হওয়ার পর পপআপ দেখিয়ে লগইন পেজে বা অটো লগইন করা
+    setPopupAlert('✅ আপনার অ্যাকাউন্টটি সফলভাবে তৈরি করা হয়েছে!');
+    setTimeout(() => {
+      setUserProfile(newUser);
+      setChatPhoneInput(newUser.phone);
+      setChatVerified(true);
+      localStorage.setItem('sim_offer_user', JSON.stringify(newUser));
+      setIsLoggedIn(true);
+      setPopupAlert('🎉 SIM OFFER SHOP এ আপনাকে স্বাগতম!');
+    }, 1500);
   };
 
   const handleLogout = () => {
@@ -512,7 +529,7 @@ export default function UserApp() {
           </div>
         )}
 
-        {/* প্রোফাইল পেজ (ইউজার ডিটেইলস ও ছবি শো করবে) */}
+        {/* প্রফাইল অপশন (নাম, ছবি, নাম্বার, জেলা ও বিভাগসহ) */}
         {activeSection === 'profile' && (
           <div className="space-y-4">
             <div className="bg-[#141032] border border-white/10 rounded-3xl p-5 text-center space-y-3 shadow-xl">
@@ -848,7 +865,7 @@ export default function UserApp() {
           </div>
         )}
 
-        {/* লাইভ চ্যাট (অটো বাইন্ডড নম্বর দিয়ে চ্যাট) */}
+        {/* লাইভ চ্যাট (অটো অ্যাকাউন্ট নম্বর বাইন্ডড) */}
         {activeSection === 'chats' && (
           <div className="bg-[#141032] border border-white/10 rounded-3xl p-4 h-[420px] flex flex-col shadow-xl text-white">
             <div className="border-b border-white/10 pb-2 mb-2 flex items-center justify-between">
