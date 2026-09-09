@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { db } from './firebase';
-import { ref, set, push, onValue, update, get, child } from 'firebase/database';
-import { 
-  Send, Flame, Wallet, History, MessageSquare, Bell, LogOut, ArrowLeft, 
-  Ticket, Copy, Check, XCircle, User as UserIcon, Facebook, MessageCircle, 
-  Eye, EyeOff, Lock, ShoppingCart, AlertCircle, Clock, Key, HelpCircle, 
+import { ref, set, push, onValue, update, get, query, orderByChild, equalTo, child } from 'firebase/database';
+import { 
+  Send, Flame, Wallet, History, MessageSquare, Bell, LogOut, ArrowLeft, 
+  Ticket, Copy, Check, XCircle, User as UserIcon, Facebook, MessageCircle, 
+  Eye, EyeOff, Lock, ShoppingCart, AlertCircle, Clock, Key, HelpCircle, 
   Sparkles, RefreshCw, Zap, Info, FileText, Download, Camera, Phone, MapPin
 } from 'lucide-react';
 
@@ -23,6 +23,7 @@ export default function UserApp() {
   const [forceUpdate, setForceUpdate] = useState({ enabled: false, link: '#' });
   const [activeSection, setActiveSection] = useState<'menu' | 'flexiload' | 'drive' | 'scratch' | 'add_balance' | 'history' | 'chats' | 'notifications' | 'profile' | 'support'>('menu');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   
   const [userProfile, setUserProfile] = useState({
     id: '', name: '', phone: '', pin: '', balance: 500, profilePic: '', division: '', district: ''
@@ -60,7 +61,6 @@ export default function UserApp() {
   const [targetCardNumber, setTargetCardNumber] = useState('');
   const [popupAlert, setPopupAlert] = useState<string | null>(null);
   
-  // অ্যাপ থেকে বের হওয়ার কনফার্মেশন পপআপের স্টেট
   const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   const [selectedDriveOp, setSelectedDriveOp] = useState('Grameenphone');
@@ -167,32 +167,26 @@ export default function UserApp() {
     }
   };
 
+  // ফাস্ট এবং অপ্টিমাইজড লগইন সিস্টেম (Query ব্যবহার করে)
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputPhone || inputPhone.length < 11 || !inputPin) {
       return alert('সঠিক মোবাইল নম্বর এবং পিন দিন!');
     }
 
+    setIsLoading(true);
     try {
-      const dbRef = ref(db);
-      const snapshot = await get(child(dbRef, 'users'));
+      const usersRef = ref(db, 'users');
+      const q = query(usersRef, orderByChild('phone'), equalTo(inputPhone));
+      const snapshot = await get(q);
       
       if (snapshot.exists()) {
         const usersData = snapshot.val();
-        let matchedUser: any = null;
-
-        Object.keys(usersData).forEach((key) => {
-          const user = usersData[key];
-          if (user.phone === inputPhone) {
-            matchedUser = { id: key, ...user };
-          }
-        });
-
-        if (!matchedUser) {
-          return alert('❌ এই নম্বরে কোনো অ্যাকাউন্ট রেজিস্টার্ড নেই!');
-        }
+        const userKey = Object.keys(usersData)[0];
+        const matchedUser = { id: userKey, ...usersData[userKey] };
 
         if (matchedUser.pin !== inputPin) {
+          setIsLoading(false);
           return alert('❌ ভুল পিন দেওয়া হয়েছে! সঠিক পিন দিয়ে আবার চেষ্টা করুন।');
         }
 
@@ -200,39 +194,36 @@ export default function UserApp() {
         setChatPhoneInput(matchedUser.phone);
         setChatVerified(true);
         localStorage.setItem('sim_offer_user', JSON.stringify(matchedUser));
+        setIsLoading(false);
         setIsLoggedIn(true);
         setPopupAlert('🎉 SIM OFFER SHOP এ আপনাকে স্বাগতম!');
       } else {
-        alert('❌ কোনো অ্যাকাউন্ট পাওয়া যায়নি!');
+        setIsLoading(false);
+        alert('❌ এই নম্বরে কোনো অ্যাকাউন্ট রেজিস্টার্ড নেই!');
       }
     } catch (error) {
       console.error(error);
+      setIsLoading(false);
       alert('লগইন করার সময় সমস্যা হয়েছে। আবার চেষ্টা করুন।');
     }
   };
 
+  // ফাস্ট এবং অপ্টিমাইজড রেজিস্ট্রেশন সিস্টেম
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputName || !inputPhone || inputPhone.length < 11 || !inputPin || !inputPic || !inputDivision || !inputDistrict) {
       return alert('⚠️ দয়া করে নাম, নম্বর, পিন, প্রফাইল ছবি, বিভাগ এবং জেলা—সবগুলো ঘর অবশ্যই পূরণ করুন!');
     }
 
+    setIsLoading(true);
     try {
-      const dbRef = ref(db);
-      const snapshot = await get(child(dbRef, 'users'));
+      const usersRef = ref(db, 'users');
+      const q = query(usersRef, orderByChild('phone'), equalTo(inputPhone));
+      const snapshot = await get(q);
       
       if (snapshot.exists()) {
-        const usersData = snapshot.val();
-        let phoneExists = false;
-        Object.keys(usersData).forEach((key) => {
-          if (usersData[key].phone === inputPhone) {
-            phoneExists = true;
-          }
-        });
-
-        if (phoneExists) {
-          return alert('⚠️ এই মোবাইল নম্বর দিয়ে ইতিমধ্যে একটি অ্যাকাউন্ট তৈরি করা আছে!');
-        }
+        setIsLoading(false);
+        return alert('⚠️ এই মোবাইল নম্বর দিয়ে ইতিমধ্যে একটি অ্যাকাউন্ট তৈরি করা আছে!');
       }
 
       const newUser = {
@@ -245,17 +236,19 @@ export default function UserApp() {
         district: inputDistrict
       };
 
-      await push(ref(db, 'users'), newUser);
+      await push(usersRef, newUser);
       
       setUserProfile(newUser);
       setChatPhoneInput(newUser.phone);
       setChatVerified(true);
       localStorage.setItem('sim_offer_user', JSON.stringify(newUser));
+      setIsLoading(false);
       setIsLoggedIn(true);
       setPopupAlert('✅ আপনার অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে এবং স্বাগতম!');
 
     } catch (error) {
       console.error(error);
+      setIsLoading(false);
       alert('রেজিস্ট্রেশন করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
     }
   };
@@ -415,7 +408,6 @@ export default function UserApp() {
     alert('✅ পিন সফলভাবে পরিবর্তন করা হয়েছে!');
   };
 
-  // ব্যাক বাটন হ্যান্ডলার (মেইন মেনুতে থাকলে এক্সিট কনফার্মেশন পপআপ দেখাবে)
   useEffect(() => {
     const backListener = CapacitorApp.addListener('backButton', () => {
       if (orderingOffer || buyingCard || activeSection !== 'menu') {
@@ -433,7 +425,12 @@ export default function UserApp() {
 
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen bg-[#0f0c29] bg-gradient-to-tr from-[#140b2b] via-[#2d124f] to-[#0f0c29] flex items-center justify-center p-4 font-sans text-xs text-white select-none">
+      <div className="min-h-screen bg-[#0f0c29] bg-gradient-to-tr from-[#140b2b] via-[#2d124f] to-[#0f0c29] flex items-center justify-center p-4 font-sans text-xs text-white select-none relative">
+        {isLoading && (
+          <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center">
+            <div className="w-8 h-8 border-4 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        )}
         <div className="w-full max-w-sm bg-white/10 backdrop-blur-2xl border border-white/25 rounded-3xl p-6 shadow-2xl text-center space-y-5 relative overflow-hidden">
           <div className="absolute -top-10 -right-10 w-32 h-32 bg-pink-500/20 rounded-full blur-2xl pointer-events-none" />
           <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl pointer-events-none" />
@@ -948,7 +945,6 @@ export default function UserApp() {
         )}
       </main>
 
-      {/* অ্যাপ থেকে বের হওয়ার কনফার্মেশন পপআপ (Are you sure? Yes / No) */}
       {showExitConfirm && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-[#18133a] border border-white/15 rounded-3xl p-6 max-w-xs w-full text-center space-y-4 shadow-2xl text-white">
