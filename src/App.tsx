@@ -81,6 +81,7 @@ export default function UserApp() {
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState('');
 
+  // অ্যাপ চালু হওয়ার সময় লোকালস্টোরেজ চেক করা (যেন লগইন করা থাকলে বারবার লগইন না চায়)
   useEffect(() => {
     const savedUser = localStorage.getItem('sim_offer_user');
     if (savedUser) {
@@ -93,6 +94,7 @@ export default function UserApp() {
   }, []);
 
   useEffect(() => {
+    if (!userProfile.phone) return;
     onValue(ref(db, 'settings/notice'), (snapshot) => { if (snapshot.val()) setRunningNotice(snapshot.val()); });
     onValue(ref(db, 'settings/forceUpdate'), (snapshot) => {
       const val = snapshot.val();
@@ -163,7 +165,6 @@ export default function UserApp() {
     }
   };
 
-  // ডাটাবেজ থেকে রিয়েল চেক করে লগইন করার ফাংশন
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputPhone || inputPhone.length < 11 || !inputPin) {
@@ -193,7 +194,7 @@ export default function UserApp() {
           return alert('❌ ভুল পিন দেওয়া হয়েছে! সঠিক পিন দিয়ে আবার চেষ্টা করুন।');
         }
 
-        // সফল লগইন
+        // সফল লগইন হলে LocalStorage এ সেভ করা এবং isLoggedIn ট্রু করা
         setUserProfile(matchedUser);
         setChatPhoneInput(matchedUser.phone);
         setChatVerified(true);
@@ -209,7 +210,6 @@ export default function UserApp() {
     }
   };
 
-  // একাউন্ট তৈরি এবং সফল মেসেজ দেখানোর পর লগইন পেজে রিডাইরেক্ট করার ফাংশন
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputName || !inputPhone || inputPhone.length < 11 || !inputPin || !inputPic || !inputDivision || !inputDistrict) {
@@ -217,7 +217,6 @@ export default function UserApp() {
     }
 
     try {
-      // চেক করা যে এই নম্বর দিয়ে ইতিমধ্যে কোনো অ্যাকাউন্ট আছে কি না
       const dbRef = ref(db);
       const snapshot = await get(child(dbRef, 'users'));
       
@@ -239,7 +238,7 @@ export default function UserApp() {
         name: inputName, 
         phone: inputPhone, 
         pin: inputPin, 
-        balance: 500, // নতুন একাউন্টের ডিফল্ট ব্যালেন্স
+        balance: 500, 
         profilePic: inputPic, 
         division: inputDivision, 
         district: inputDistrict
@@ -247,17 +246,13 @@ export default function UserApp() {
 
       await push(ref(db, 'users'), newUser);
       
-      // সফলভাবে একাউন্ট তৈরি হওয়ার পর পপআপ দেখানো
-      setPopupAlert('✅ আপনার একাউন্ট সফলভাবে তৈরি হয়েছে! এখন লগইন করুন।');
-      
-      // ইনপুট ফিল্ডগুলো খালি করা এবং লগইন ভিউতে নিয়ে যাওয়া
-      setInputPhone('');
-      setInputPin('');
-      setInputName('');
-      setInputPic('');
-      setInputDivision('');
-      setInputDistrict('');
-      setAuthView('login');
+      // একাউন্ট তৈরি সফল হলে সাথে সাথে লোকালস্টোরেজে সেভ করে অটো লগইন করিয়ে দেওয়া (যাতে আলাদা করে আবার লগইন পেজে যেতে না হয়)
+      setUserProfile(newUser);
+      setChatPhoneInput(newUser.phone);
+      setChatVerified(true);
+      localStorage.setItem('sim_offer_user', JSON.stringify(newUser));
+      setIsLoggedIn(true);
+      setPopupAlert('✅ আপনার অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে এবং স্বাগতম!');
 
     } catch (error) {
       console.error(error);
