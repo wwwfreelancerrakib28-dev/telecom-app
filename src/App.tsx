@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
-import { Network } from '@capacitor/network';
 import { db } from './firebase';
 import { ref, set, push, onValue, get } from 'firebase/database';
 import { 
@@ -90,7 +89,7 @@ export default function UserApp() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   
-  // সম্পূর্ণ রিয়েল-টাইম অফলাইন ডিটেকশন
+  // সম্পূর্ণ রিয়েল-টাইম অফলাইন ডিটেকশন (জিরো ডিপেন্ডেন্সি)
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   // পিন রিসেট ও অ্যান্টি-হয়রানি সিকিউরিটি স্টেট
@@ -173,29 +172,26 @@ export default function UserApp() {
     return () => clearInterval(timer);
   }, []);
 
-  // নেটওয়ার্ক স্ট্যাটাস ট্র্যাকিং
+  // নেটওয়ার্ক ট্র্যাকিং (যেকোনো প্যাকেজ ছাড়া পিউর ওয়েব লিসেনার)
   useEffect(() => {
-    Network.getStatus().then(status => setIsOnline(status.connected));
-    const netListener = Network.addListener('networkStatusChange', status => {
-      setIsOnline(status.connected);
-    });
-
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
     const checkInterval = setInterval(() => {
-      if (!navigator.onLine) setIsOnline(false);
-    }, 1500);
+      if (navigator.onLine !== isOnline) {
+        setIsOnline(navigator.onLine);
+      }
+    }, 1000);
 
     return () => {
-      netListener.then(l => l.remove());
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       clearInterval(checkInterval);
     };
-  }, []);
+  }, [isOnline]);
 
   const handleBalanceTap = () => {
     setShowBalance(true);
@@ -632,9 +628,8 @@ export default function UserApp() {
           <strong className="text-pink-300">SIM OFFER SHOP</strong> ব্যবহার করার জন্য ইন্টারনেট সংযোগ আবশ্যক। আপনার মোবাইল ডাটা বা ওয়াইফাই চালু করুন।
         </p>
         <button 
-          onClick={async () => {
-            const status = await Network.getStatus();
-            if (status.connected) {
+          onClick={() => {
+            if (navigator.onLine) {
               setIsOnline(true);
             } else {
               alert('⚠️ আপনার ফোনে ইন্টারনেট সংযোগ এখনো চালু হয়নি!');
