@@ -96,24 +96,33 @@ export default function UserApp() {
     return () => clearInterval(timer);
   }, []);
 
-  // বিকাশ স্টাইল ব্যালেন্স অটো হাইড (৩ সেকেন্ড)
+  // নেটওয়ার্ক স্ট্যাটাস মনিটর (রিয়েলটাইম ডিটেকশন)
+  useEffect(() => {
+    const checkConnection = () => {
+      setIsOnline(navigator.onLine);
+    };
+
+    window.addEventListener('online', checkConnection);
+    window.addEventListener('offline', checkConnection);
+
+    // সক্রিয় পিং চেক (ইন্টারনেট ডাটা ফুরিয়ে গেলে বা ড্রপ করলে ধরার জন্য)
+    const interval = setInterval(() => {
+      setIsOnline(navigator.onLine);
+    }, 2000);
+
+    return () => {
+      window.removeEventListener('online', checkConnection);
+      window.removeEventListener('offline', checkConnection);
+      clearInterval(interval);
+    };
+  }, []);
+
   const handleBalanceTap = () => {
     setShowBalance(true);
     setTimeout(() => {
       setShowBalance(false);
     }, 3500);
   };
-
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
 
   useEffect(() => {
     const savedUser = localStorage.getItem('sim_offer_user');
@@ -126,7 +135,7 @@ export default function UserApp() {
   }, []);
 
   useEffect(() => {
-    if (!userProfile.phone) return;
+    if (!userProfile.phone || !isOnline) return;
     onValue(ref(db, 'settings/notice'), (snapshot) => { if (snapshot.val()) setRunningNotice(snapshot.val()); });
     onValue(ref(db, 'settings/forceUpdate'), (snapshot) => {
       const val = snapshot.val();
@@ -184,12 +193,13 @@ export default function UserApp() {
       if (data) setChatMessages(Object.keys(data).map(k => ({ id: k, ...data[k] })));
       else setChatMessages([]);
     });
-  }, [userProfile.phone]);
+  }, [userProfile.phone, isOnline]);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!navigator.onLine) {
-      return alert('⚠️ ইন্টারনেট সংযোগ নেই!');
+      setIsOnline(false);
+      return;
     }
     const cleanPhone = inputPhone.trim();
     const cleanPin = inputPin.trim();
@@ -203,35 +213,21 @@ export default function UserApp() {
       const userDirectRef = ref(db, `users/${cleanPhone}`);
       const snapshot = await get(userDirectRef);
       
-      let matchedUser: any = null;
-
-      if (snapshot.exists()) {
-        matchedUser = { id: cleanPhone, ...snapshot.val() };
-      } else {
-        const usersRef = ref(db, 'users');
-        const allSnap = await get(usersRef);
-        if (allSnap.exists()) {
-          const data = allSnap.val();
-          const foundKey = Object.keys(data).find(k => data[k].phone === cleanPhone);
-          if (foundKey) {
-            matchedUser = { id: foundKey, ...data[foundKey] };
-          }
-        }
-      }
-
       setIsLoading(false);
 
-      if (!matchedUser) {
+      if (!snapshot.exists()) {
         return alert('❌ এই নম্বরে কোনো অ্যাকাউন্ট পাওয়া যায়নি!');
       }
 
-      if (matchedUser.pin !== cleanPin) {
+      const userData = snapshot.val();
+      if (userData.pin !== cleanPin) {
         return alert('❌ ভুল পিন দেওয়া হয়েছে!');
       }
 
-      setUserProfile(matchedUser);
-      setChatPhoneInput(matchedUser.phone);
-      localStorage.setItem('sim_offer_user', JSON.stringify(matchedUser));
+      const verifiedUser = { id: cleanPhone, ...userData };
+      setUserProfile(verifiedUser);
+      setChatPhoneInput(cleanPhone);
+      localStorage.setItem('sim_offer_user', JSON.stringify(verifiedUser));
       setIsLoggedIn(true);
     } catch (error) {
       console.error(error);
@@ -243,7 +239,8 @@ export default function UserApp() {
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!navigator.onLine) {
-      return alert('⚠️ ইন্টারনেট সংযোগ নেই!');
+      setIsOnline(false);
+      return;
     }
 
     const cleanName = inputName.trim();
@@ -264,17 +261,6 @@ export default function UserApp() {
       if (checkSnap.exists()) {
         setIsLoading(false);
         return alert('⚠️ এই মোবাইল নম্বর দিয়ে ইতিমধ্যে একটি অ্যাকাউন্ট তৈরি আছে!');
-      }
-
-      const usersRef = ref(db, 'users');
-      const allSnap = await get(usersRef);
-      if (allSnap.exists()) {
-        const data = allSnap.val();
-        const exists = Object.keys(data).some(k => data[k].phone === cleanPhone);
-        if (exists) {
-          setIsLoading(false);
-          return alert('⚠️ এই মোবাইল নম্বর দিয়ে ইতিমধ্যে একটি অ্যাকাউন্ট তৈরি আছে!');
-        }
       }
 
       const newUser = {
@@ -492,26 +478,35 @@ export default function UserApp() {
 
   const visibleOffers = driveOffers.filter(o => o.operator === selectedDriveOp);
 
+  // ইন্টারনেট না থাকলে অ্যাপ লক স্ক্রিন (সম্পূর্ণ ব্লক)
   if (!isOnline) {
     return (
-      <div className="min-h-screen bg-[#0f0c29] flex flex-col items-center justify-center p-6 text-center text-white font-sans select-none">
-        <div className="w-20 h-20 bg-rose-500/20 border border-rose-500/40 rounded-3xl flex items-center justify-center text-rose-400 mb-4 animate-bounce">
-          <WifiOff className="w-10 h-10" />
+      <div className="fixed inset-0 z-50 bg-[#0d0b21] flex flex-col items-center justify-center p-6 text-center text-white font-sans select-none">
+        <div className="w-24 h-24 bg-rose-500/10 border-2 border-rose-500/40 rounded-3xl flex items-center justify-center text-rose-400 mb-5 animate-pulse shadow-2xl shadow-rose-500/20">
+          <WifiOff className="w-12 h-12 stroke-[2.5]" />
         </div>
-        <h2 className="text-lg font-black text-rose-300">ইন্টারনেট সংযোগ বিচ্ছিন্ন!</h2>
-        <p className="text-xs text-slate-300 mt-2 max-w-xs leading-relaxed">
-          এই অ্যাপটি ব্যবহার করার জন্য ইন্টারনেট সংযোগ আবশ্যক। দয়া করে আপনার মোবাইল ডাটা বা ওয়াইফাই চালু করুন।
+        <h2 className="text-xl font-black text-rose-300">ইন্টারনেট সংযোগ নেই!</h2>
+        <p className="text-xs text-slate-300 mt-2.5 max-w-xs leading-relaxed font-medium">
+          <strong className="text-pink-300">SIM OFFER SHOP</strong> ব্যবহার করার জন্য সক্রিয় ইন্টারনেট সংযোগ আবশ্যক। আপনার মোবাইল ডাটা বা ওয়াইফাই চালু করুন।
         </p>
+        
         <button 
-          onClick={() => window.location.reload()} 
-          className="mt-6 px-6 py-3 bg-gradient-to-r from-pink-600 to-purple-600 text-white font-bold rounded-xl shadow-lg active:scale-95"
+          onClick={() => {
+            if (navigator.onLine) {
+              setIsOnline(true);
+            } else {
+              alert('⚠️ ইন্টারনেট সংযোগ এখনো চালু হয়নি! দয়া করে ডাটা বা ওয়াইফাই অন করুন।');
+            }
+          }} 
+          className="mt-8 px-8 py-3.5 bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 text-white font-black text-xs rounded-2xl shadow-xl shadow-pink-600/30 active:scale-95 transition-all flex items-center gap-2"
         >
-          পুনরায় চেষ্টা করুন
+          <RefreshCw className="w-4 h-4" /> পুনরায় চেক করুন
         </button>
       </div>
     );
   }
 
+  // লগইন ও রেজিস্ট্রেশন পেজ
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-[#0f0c29] bg-gradient-to-tr from-[#140b2b] via-[#2d124f] to-[#0f0c29] flex items-center justify-center p-4 font-sans text-xs text-white select-none relative">
@@ -567,6 +562,7 @@ export default function UserApp() {
                   </button>
                 </div>
               </div>
+
               <button 
                 type="submit" 
                 disabled={isLoading}
@@ -581,6 +577,19 @@ export default function UserApp() {
                   'লগইন করুন'
                 )}
               </button>
+
+              {/* পিন ভুলে গেলে সরাসরি হোয়াটসঅ্যাপ যোগাযোগ বাটন */}
+              <div className="pt-2 text-center">
+                <a 
+                  href={`https://wa.me/${adminSocialLinks.whatsappNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`আসসালামু আলাইকুম এডমিন, আমি SIM OFFER SHOP অ্যাপে আমার পিন ভুলে গেছি। আমার নম্বর: ${inputPhone || '01XXXXXXXXX'}। দয়া করে আমার পিন রিসেট করে দিন।`)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 text-[11px] font-bold text-pink-300/90 hover:text-pink-200 transition-colors py-1 px-2 rounded-lg bg-white/5 border border-white/10"
+                >
+                  <Key className="w-3.5 h-3.5 text-yellow-400" />
+                  <span>পিন ভুলে গেছেন? এডমিন সাপোর্ট</span>
+                </a>
+              </div>
             </form>
           ) : (
             <form onSubmit={handleRegisterSubmit} className="space-y-3 text-left">
@@ -702,6 +711,7 @@ export default function UserApp() {
     );
   }
 
+  // মূল হোম অ্যাপ স্ক্রিন
   return (
     <div className="min-h-screen bg-[#0d0b21] text-slate-100 flex flex-col font-sans text-xs relative select-none">
       {isRefreshing && (
@@ -729,7 +739,7 @@ export default function UserApp() {
         </div>
       )}
 
-      {/* প্রিমিয়াম রিডিজাইনড হেডার */}
+      {/* প্রিমিয়াম হেডার */}
       <header className="bg-[#141032]/80 backdrop-blur-xl border-b border-white/10 px-4 py-3 flex items-center justify-between sticky top-0 z-20 shadow-lg">
         {activeSection !== 'menu' ? (
           <div className="flex items-center gap-3">
@@ -777,7 +787,7 @@ export default function UserApp() {
         )}
       </header>
 
-      {/* প্রিমিয়াম গ্লাস-মরফিক রানিং নোটিশ */}
+      {/* গ্লাস-মরফিক রানিং নোটিশ */}
       <div className="bg-[#120f2e]/90 backdrop-blur-md border-b border-indigo-500/20 px-4 py-2 text-[11px] font-bold shadow-md flex items-center gap-2.5 text-indigo-100">
         <span className="bg-gradient-to-r from-pink-600 to-purple-600 text-white px-2.5 py-0.5 rounded-lg text-[9px] uppercase font-black tracking-wider shadow-sm flex items-center gap-1 shrink-0">
           <Sparkles className="w-3 h-3 text-yellow-300" /> নোটিশ
@@ -795,7 +805,6 @@ export default function UserApp() {
           <div className="space-y-4">
             {/* কমপ্যাক্ট বিকাশ-স্টাইল ব্যালেন্স বার + লাইভ ক্লক ও তারিখ */}
             <div className="grid grid-cols-2 gap-2.5 items-stretch">
-              {/* বিকাশ স্টাইল ট্যাপ টু ব্যালেন্স বাটন */}
               <div 
                 onClick={handleBalanceTap}
                 className="bg-gradient-to-tr from-[#1a1442] via-[#241b5c] to-[#161138] border border-indigo-500/30 rounded-2xl p-3 flex flex-col justify-center items-center text-center shadow-lg active:scale-95 transition-all cursor-pointer relative overflow-hidden group"
@@ -817,7 +826,6 @@ export default function UserApp() {
                 </div>
               </div>
 
-              {/* লাইভ ঘড়ি ও ক্যালেন্ডার উইজেট */}
               <div className="bg-[#141032] border border-white/10 rounded-2xl p-3 flex flex-col justify-center items-center text-center shadow-lg">
                 <div className="flex items-center gap-1.5 text-indigo-300 font-mono text-sm font-black">
                   <Clock className="w-3.5 h-3.5 text-pink-400 animate-pulse" />
@@ -839,7 +847,7 @@ export default function UserApp() {
               <button onClick={() => setActiveSection('chats')} className="bg-[#141032] hover:bg-[#1c1747] border border-white/10 rounded-3xl p-4 flex flex-col items-center text-center shadow-lg active:scale-95 transition-all"><div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center mb-2.5 shadow-inner"><MessageSquare className="w-5 h-5" /></div><span className="text-xs font-extrabold text-white">Live Chat</span></button>
             </div>
 
-            {/* সোশ্যাল সাপোর্ট সেকশন (নিচে স্থানান্তরিত) */}
+            {/* সোশ্যাল সাপোর্ট সেকশন */}
             <div className="bg-[#141032] border border-white/10 rounded-3xl p-4 shadow-xl space-y-3">
               <div className="flex items-center justify-between border-b border-white/10 pb-2">
                 <span className="font-extrabold text-xs text-white flex items-center gap-1.5">
