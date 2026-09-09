@@ -5,8 +5,8 @@ import { ref, set, push, onValue, get } from 'firebase/database';
 import { 
   Send, Flame, Wallet, History, MessageSquare, Bell, LogOut, ArrowLeft, 
   Ticket, Copy, Check, Facebook, MessageCircle, 
-  Eye, EyeOff, ShoppingCart, AlertCircle, Key, HelpCircle, 
-  Sparkles, RefreshCw, Zap, FileText, Download, MapPin, WifiOff
+  Eye, ShoppingCart, AlertCircle, Key, HelpCircle, 
+  Sparkles, RefreshCw, Zap, FileText, Download, MapPin, WifiOff, Clock
 } from 'lucide-react';
 
 export default function UserApp() {
@@ -31,6 +31,7 @@ export default function UserApp() {
   });
 
   const [showBalance, setShowBalance] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
   const [adminSocialLinks, setAdminSocialLinks] = useState({ facebookPage: '', whatsappNumber: '01728116153' });
   const [showPin, setShowPin] = useState(false);
   const [oldPinInput, setOldPinInput] = useState('');
@@ -88,6 +89,20 @@ export default function UserApp() {
 
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
+
+  // লাইভ ক্লক টাইমার
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // বিকাশ স্টাইল ব্যালেন্স অটো হাইড (৩ সেকেন্ড)
+  const handleBalanceTap = () => {
+    setShowBalance(true);
+    setTimeout(() => {
+      setShowBalance(false);
+    }, 3500);
+  };
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -500,15 +515,6 @@ export default function UserApp() {
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-[#0f0c29] bg-gradient-to-tr from-[#140b2b] via-[#2d124f] to-[#0f0c29] flex items-center justify-center p-4 font-sans text-xs text-white select-none relative">
-        <div className="absolute top-4 right-4 flex items-center gap-2 z-30">
-          <a href={adminSocialLinks.facebookPage || '#'} target="_blank" rel="noreferrer" className="w-9 h-9 rounded-2xl bg-blue-600/20 border border-blue-500/40 text-blue-400 flex items-center justify-center shadow-lg active:scale-95 transition-all">
-            <Facebook className="w-4 h-4" />
-          </a>
-          <a href={`https://wa.me/${adminSocialLinks.whatsappNumber.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" className="w-9 h-9 rounded-2xl bg-emerald-600/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center shadow-lg active:scale-95 transition-all">
-            <MessageCircle className="w-4 h-4" />
-          </a>
-        </div>
-
         <div className="w-full max-w-sm bg-white/10 backdrop-blur-2xl border border-white/25 rounded-3xl p-6 shadow-2xl text-center space-y-5 relative overflow-hidden">
           <div className="absolute -top-10 -right-10 w-32 h-32 bg-pink-500/20 rounded-full blur-2xl pointer-events-none" />
           <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl pointer-events-none" />
@@ -557,7 +563,7 @@ export default function UserApp() {
                     onClick={() => setShowAuthPin(!showAuthPin)} 
                     className="absolute right-3 top-3 text-slate-400 hover:text-white"
                   >
-                    {showAuthPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showAuthPin ? <Eye className="w-4 h-4 text-pink-400" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
@@ -617,7 +623,7 @@ export default function UserApp() {
                     onClick={() => setShowAuthPin(!showAuthPin)} 
                     className="absolute right-3 top-2.5 text-slate-400 hover:text-white"
                   >
-                    {showAuthPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showAuthPin ? <Eye className="w-4 h-4 text-pink-400" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
@@ -723,44 +729,60 @@ export default function UserApp() {
         </div>
       )}
 
-      <header className="bg-[#141032]/80 backdrop-blur-xl border-b border-white/10 px-4 py-3.5 flex items-center justify-between sticky top-0 z-20 shadow-lg">
-        <div className="flex items-center gap-3">
-          {activeSection !== 'menu' ? (
-            <button onClick={() => setActiveSection('menu')} className="p-2 -ml-2 rounded-2xl bg-white/5 border border-white/10 text-white"><ArrowLeft className="w-4 h-4" /></button>
-          ) : (
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-pink-500 via-purple-600 to-indigo-600 border border-white/20 shadow-md flex items-center justify-center text-white font-black text-sm uppercase">
+      {/* প্রিমিয়াম রিডিজাইনড হেডার */}
+      <header className="bg-[#141032]/80 backdrop-blur-xl border-b border-white/10 px-4 py-3 flex items-center justify-between sticky top-0 z-20 shadow-lg">
+        {activeSection !== 'menu' ? (
+          <div className="flex items-center gap-3">
+            <button onClick={() => setActiveSection('menu')} className="p-2 -ml-2 rounded-2xl bg-white/5 border border-white/10 text-white active:scale-95 transition-all">
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <h2 className="text-xs font-black uppercase tracking-wider text-indigo-200">
+              {activeSection === 'profile' ? 'প্রোফাইল বিবরণ' : activeSection}
+            </h2>
+          </div>
+        ) : (
+          <button 
+            onClick={() => setActiveSection('profile')}
+            className="flex items-center gap-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl p-1.5 pr-3 active:scale-95 transition-all text-left"
+          >
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-pink-500 via-purple-600 to-indigo-600 border border-white/20 shadow-md flex items-center justify-center text-white font-black text-sm uppercase">
               {userProfile.name ? userProfile.name.charAt(0) : 'U'}
             </div>
-          )}
-          <div>
-            <h2 className="text-xs font-black text-white">{userProfile.name}</h2>
-            <p className="text-[10px] text-indigo-300 font-mono">{userProfile.phone}</p>
-          </div>
-        </div>
+            <div>
+              <h2 className="text-xs font-black text-white leading-tight flex items-center gap-1">
+                {userProfile.name}
+              </h2>
+              <p className="text-[9px] text-indigo-300 font-mono leading-tight mt-0.5">{userProfile.phone}</p>
+            </div>
+          </button>
+        )}
 
         {activeSection === 'menu' && (
-          <div className="flex items-center gap-1.5">
-            <a href={adminSocialLinks.facebookPage || '#'} target="_blank" rel="noreferrer" className="p-2 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-400" title="ফেসবুক পেজ">
-              <Facebook className="w-3.5 h-3.5" />
-            </a>
-            <a href={`https://wa.me/${adminSocialLinks.whatsappNumber.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" className="p-2 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400" title="হোয়াটসঅ্যাপ">
-              <MessageCircle className="w-3.5 h-3.5" />
-            </a>
-            <button onClick={() => setActiveSection('notifications')} className="p-2 rounded-2xl bg-white/5 border border-white/10 text-amber-400 relative">
-              <Bell className="w-3.5 h-3.5" />
-              {notifications.length > 0 && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full animate-ping" />}
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setActiveSection('notifications')} 
+              className="p-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-amber-400 relative active:scale-95 transition-all shadow"
+            >
+              <Bell className="w-4 h-4" />
+              {notifications.length > 0 && <span className="absolute 1.5 top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full animate-ping" />}
             </button>
-            <button onClick={() => setActiveSection('profile')} className="p-2 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 font-extrabold flex items-center justify-center">
-              <span className="w-4 h-4 flex items-center justify-center font-black text-[10px] uppercase">{userProfile.name ? userProfile.name.charAt(0) : 'U'}</span>
+            <button 
+              onClick={() => setShowLogoutConfirm(true)} 
+              className="p-2.5 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 active:scale-95 transition-all shadow"
+              title="লগআউট"
+            >
+              <LogOut className="w-4 h-4" />
             </button>
-            <button onClick={() => setShowLogoutConfirm(true)} className="p-2 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400" title="লগআউট"><LogOut className="w-3.5 h-3.5" /></button>
           </div>
         )}
       </header>
 
-      <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-500 text-white px-4 py-2 text-[11px] font-bold shadow-md flex items-center gap-2">
-        <span className="bg-black/40 text-amber-300 px-2 py-0.5 rounded-lg text-[9px] uppercase font-black">Notice</span>
-        <marquee className="font-medium">{runningNotice}</marquee>
+      {/* প্রিমিয়াম গ্লাস-মরফিক রানিং নোটিশ */}
+      <div className="bg-[#120f2e]/90 backdrop-blur-md border-b border-indigo-500/20 px-4 py-2 text-[11px] font-bold shadow-md flex items-center gap-2.5 text-indigo-100">
+        <span className="bg-gradient-to-r from-pink-600 to-purple-600 text-white px-2.5 py-0.5 rounded-lg text-[9px] uppercase font-black tracking-wider shadow-sm flex items-center gap-1 shrink-0">
+          <Sparkles className="w-3 h-3 text-yellow-300" /> নোটিশ
+        </span>
+        <marquee className="font-medium text-slate-200">{runningNotice}</marquee>
       </div>
 
       <main 
@@ -771,25 +793,43 @@ export default function UserApp() {
       >
         {activeSection === 'menu' && (
           <div className="space-y-4">
-            <div className="bg-gradient-to-tr from-[#1a1442] via-[#241b5c] to-[#120e2e] border border-white/10 rounded-3xl p-5 text-white shadow-2xl space-y-3 relative overflow-hidden">
-              <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-purple-500/20 rounded-full blur-3xl pointer-events-none" />
-              <div className="flex justify-between items-center relative z-10">
-                <span className="text-[10px] font-bold text-purple-300 uppercase tracking-widest bg-white/10 px-3 py-1 rounded-xl border border-white/10 shadow-inner">RETAILER ACCOUNT</span>
-                <span className="text-xs text-emerald-400 font-bold flex items-center gap-1"><span className="w-2 h-2 bg-emerald-400 rounded-full animate-ping" /> Active</span>
-              </div>
-              <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-2xl p-4 flex items-center justify-between relative z-10 shadow-inner">
-                <div>
-                  <span className="text-[10px] text-slate-400 block mb-1">টোটাল ব্যালেন্স</span>
-                  <h3 className="text-2xl font-black font-mono text-white">
-                    {showBalance ? `৳${userProfile.balance}` : '৳••••••'}
-                  </h3>
+            {/* কমপ্যাক্ট বিকাশ-স্টাইল ব্যালেন্স বার + লাইভ ক্লক ও তারিখ */}
+            <div className="grid grid-cols-2 gap-2.5 items-stretch">
+              {/* বিকাশ স্টাইল ট্যাপ টু ব্যালেন্স বাটন */}
+              <div 
+                onClick={handleBalanceTap}
+                className="bg-gradient-to-tr from-[#1a1442] via-[#241b5c] to-[#161138] border border-indigo-500/30 rounded-2xl p-3 flex flex-col justify-center items-center text-center shadow-lg active:scale-95 transition-all cursor-pointer relative overflow-hidden group"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-pink-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <span className="text-[10px] font-bold text-pink-300 uppercase tracking-wider mb-1 flex items-center gap-1">
+                  <Wallet className="w-3 h-3 text-pink-400" /> টোটাল ব্যালেন্স
+                </span>
+                <div className="h-6 flex items-center justify-center">
+                  {showBalance ? (
+                    <span className="text-sm font-black font-mono text-emerald-400 tracking-wider animate-fadeIn">
+                      ৳{userProfile.balance}
+                    </span>
+                  ) : (
+                    <div className="flex items-center gap-1.5 text-indigo-200 text-xs font-bold bg-white/5 border border-white/10 px-3 py-1 rounded-full">
+                      <span>ট্যাপ করে দেখুন</span>
+                    </div>
+                  )}
                 </div>
-                <button onClick={() => setShowBalance(!showBalance)} className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-indigo-400 active:scale-95 shadow">
-                  {showBalance ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
+              </div>
+
+              {/* লাইভ ঘড়ি ও ক্যালেন্ডার উইজেট */}
+              <div className="bg-[#141032] border border-white/10 rounded-2xl p-3 flex flex-col justify-center items-center text-center shadow-lg">
+                <div className="flex items-center gap-1.5 text-indigo-300 font-mono text-sm font-black">
+                  <Clock className="w-3.5 h-3.5 text-pink-400 animate-pulse" />
+                  {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                </div>
+                <div className="text-[10px] text-slate-400 font-medium mt-1">
+                  {currentTime.toLocaleDateString('bn-BD', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                </div>
               </div>
             </div>
 
+            {/* ৬টি প্রধান সার্ভিস অপশন */}
             <div className="grid grid-cols-3 gap-3">
               <button onClick={() => setActiveSection('flexiload')} className="bg-[#141032] hover:bg-[#1c1747] border border-white/10 rounded-3xl p-4 flex flex-col items-center text-center shadow-lg active:scale-95 transition-all"><div className="w-12 h-12 rounded-2xl bg-sky-500/10 border border-sky-500/20 text-sky-400 flex items-center justify-center mb-2.5 shadow-inner"><Send className="w-5 h-5" /></div><span className="text-xs font-extrabold text-white">Flexiload</span></button>
               <button onClick={() => setActiveSection('drive')} className="bg-[#141032] hover:bg-[#1c1747] border border-white/10 rounded-3xl p-4 flex flex-col items-center text-center shadow-lg active:scale-95 transition-all"><div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mb-2.5 shadow-inner"><Flame className="w-5 h-5" /></div><span className="text-xs font-extrabold text-white">Drive Pack</span></button>
@@ -797,6 +837,37 @@ export default function UserApp() {
               <button onClick={() => setActiveSection('add_balance')} className="bg-[#141032] hover:bg-[#1c1747] border border-white/10 rounded-3xl p-4 flex flex-col items-center text-center shadow-lg active:scale-95 transition-all"><div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-2.5 shadow-inner"><Wallet className="w-5 h-5" /></div><span className="text-xs font-extrabold text-white">Add Balance</span></button>
               <button onClick={() => setActiveSection('history')} className="bg-[#141032] hover:bg-[#1c1747] border border-white/10 rounded-3xl p-4 flex flex-col items-center text-center shadow-lg active:scale-95 transition-all"><div className="w-12 h-12 rounded-2xl bg-violet-500/10 border border-violet-500/20 text-violet-400 flex items-center justify-center mb-2.5 shadow-inner"><History className="w-5 h-5" /></div><span className="text-xs font-extrabold text-white">History</span></button>
               <button onClick={() => setActiveSection('chats')} className="bg-[#141032] hover:bg-[#1c1747] border border-white/10 rounded-3xl p-4 flex flex-col items-center text-center shadow-lg active:scale-95 transition-all"><div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center mb-2.5 shadow-inner"><MessageSquare className="w-5 h-5" /></div><span className="text-xs font-extrabold text-white">Live Chat</span></button>
+            </div>
+
+            {/* সোশ্যাল সাপোর্ট সেকশন (নিচে স্থানান্তরিত) */}
+            <div className="bg-[#141032] border border-white/10 rounded-3xl p-4 shadow-xl space-y-3">
+              <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                <span className="font-extrabold text-xs text-white flex items-center gap-1.5">
+                  <HelpCircle className="w-4 h-4 text-emerald-400" /> সার্বক্ষণিক হেল্পলাইন ও সাপোর্ট
+                </span>
+                <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-md font-bold">24/7 Active</span>
+              </div>
+              <p className="text-[10px] text-slate-400 leading-tight">যেকোনো সমস্যা বা প্রয়োজনে সরাসরি আমাদের সাথে সোশ্যাল মিডিয়ায় যোগাযোগ করুন:</p>
+              <div className="grid grid-cols-2 gap-2.5">
+                <a 
+                  href={adminSocialLinks.facebookPage || '#'} 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  className="py-2.5 px-3 rounded-2xl bg-blue-600/15 hover:bg-blue-600/25 border border-blue-500/30 text-blue-400 flex items-center justify-center gap-2 active:scale-95 transition-all font-bold text-[11px] shadow"
+                >
+                  <Facebook className="w-4 h-4 shrink-0" />
+                  <span>ফেসবুক পেজ</span>
+                </a>
+                <a 
+                  href={`https://wa.me/${adminSocialLinks.whatsappNumber.replace(/[^0-9]/g, '')}`} 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  className="py-2.5 px-3 rounded-2xl bg-emerald-600/15 hover:bg-emerald-600/25 border border-emerald-500/30 text-emerald-400 flex items-center justify-center gap-2 active:scale-95 transition-all font-bold text-[11px] shadow"
+                >
+                  <MessageCircle className="w-4 h-4 shrink-0" />
+                  <span>হোয়াটসঅ্যাপ</span>
+                </a>
+              </div>
             </div>
           </div>
         )}
@@ -816,7 +887,7 @@ export default function UserApp() {
                 <div className="flex items-center justify-center gap-1.5 mt-2">
                   <span className="text-xs text-indigo-300 font-mono">🔒 পিন: {showPin ? userProfile.pin : '••••'}</span>
                   <button onClick={() => setShowPin(!showPin)} className="text-indigo-400 p-1">
-                    {showPin ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    <Eye className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
@@ -1059,17 +1130,6 @@ export default function UserApp() {
                 </div>
               ))
             )}
-          </div>
-        )}
-
-        {activeSection === 'support' && (
-          <div className="bg-[#141032] border border-white/10 rounded-3xl p-5 text-center space-y-3 shadow-xl">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto shadow-inner"><HelpCircle className="w-6 h-6" /></div>
-            <h3 className="text-sm font-black text-white">অ্যাডমিন সাপোর্ট ও যোগাযোগ</h3>
-            <div className="grid grid-cols-2 gap-2.5 pt-2">
-              <a href={adminSocialLinks.facebookPage} target="_blank" rel="noreferrer" className="py-3 bg-blue-500/10 border border-blue-500/30 text-blue-400 font-bold rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all"><Facebook className="w-4 h-4" /> ফেসবুক পেজ</a>
-              <a href={`https://wa.me/${adminSocialLinks.whatsappNumber.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" className="py-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all"><MessageCircle className="w-4 h-4" /> হোয়াটসঅ্যাপ</a>
-            </div>
           </div>
         )}
 
