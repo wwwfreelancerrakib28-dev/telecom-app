@@ -59,6 +59,9 @@ export default function UserApp() {
   const [buyingCard, setBuyingCard] = useState<any | null>(null);
   const [targetCardNumber, setTargetCardNumber] = useState('');
   const [popupAlert, setPopupAlert] = useState<string | null>(null);
+  
+  // অ্যাপ থেকে বের হওয়ার কনফার্মেশন পপআপের স্টেট
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   const [selectedDriveOp, setSelectedDriveOp] = useState('Grameenphone');
   const [driveOffers, setDriveOffers] = useState<any[]>([]);
@@ -81,7 +84,6 @@ export default function UserApp() {
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState('');
 
-  // অ্যাপ চালু হওয়ার সময় লোকালস্টোরেজ চেক করা (যেন লগইন করা থাকলে বারবার লগইন না চায়)
   useEffect(() => {
     const savedUser = localStorage.getItem('sim_offer_user');
     if (savedUser) {
@@ -194,7 +196,6 @@ export default function UserApp() {
           return alert('❌ ভুল পিন দেওয়া হয়েছে! সঠিক পিন দিয়ে আবার চেষ্টা করুন।');
         }
 
-        // সফল লগইন হলে LocalStorage এ সেভ করা এবং isLoggedIn ট্রু করা
         setUserProfile(matchedUser);
         setChatPhoneInput(matchedUser.phone);
         setChatVerified(true);
@@ -246,7 +247,6 @@ export default function UserApp() {
 
       await push(ref(db, 'users'), newUser);
       
-      // একাউন্ট তৈরি সফল হলে সাথে সাথে লোকালস্টোরেজে সেভ করে অটো লগইন করিয়ে দেওয়া (যাতে আলাদা করে আবার লগইন পেজে যেতে না হয়)
       setUserProfile(newUser);
       setChatPhoneInput(newUser.phone);
       setChatVerified(true);
@@ -415,6 +415,7 @@ export default function UserApp() {
     alert('✅ পিন সফলভাবে পরিবর্তন করা হয়েছে!');
   };
 
+  // ব্যাক বাটন হ্যান্ডলার (মেইন মেনুতে থাকলে এক্সিট কনফার্মেশন পপআপ দেখাবে)
   useEffect(() => {
     const backListener = CapacitorApp.addListener('backButton', () => {
       if (orderingOffer || buyingCard || activeSection !== 'menu') {
@@ -422,7 +423,7 @@ export default function UserApp() {
         else if (buyingCard) setBuyingCard(null);
         else setActiveSection('menu');
       } else {
-        CapacitorApp.exitApp();
+        setShowExitConfirm(true);
       }
     });
     return () => { backListener.then(h => h.remove()); };
@@ -946,6 +947,25 @@ export default function UserApp() {
           </div>
         )}
       </main>
+
+      {/* অ্যাপ থেকে বের হওয়ার কনফার্মেশন পপআপ (Are you sure? Yes / No) */}
+      {showExitConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#18133a] border border-white/15 rounded-3xl p-6 max-w-xs w-full text-center space-y-4 shadow-2xl text-white">
+            <div className="w-14 h-14 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto border border-amber-500/30 shadow-inner">
+              <AlertCircle className="w-7 h-7" />
+            </div>
+            <div>
+              <h4 className="text-sm font-black text-white">আপনি কি নিশ্চিত?</h4>
+              <p className="text-[11px] text-slate-300 mt-1">আপনি কি অ্যাপ থেকে বের হয়ে যেতে চান?</p>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => setShowExitConfirm(false)} className="flex-1 py-3 bg-white/10 hover:bg-white/20 text-slate-300 font-bold rounded-xl transition-all">না</button>
+              <button onClick={() => CapacitorApp.exitApp()} className="flex-1 py-3 bg-gradient-to-r from-rose-600 to-red-600 text-white font-bold rounded-xl shadow-lg transition-all active:scale-95">হ্যাঁ</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {popupAlert && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
