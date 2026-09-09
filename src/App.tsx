@@ -33,7 +33,6 @@ export default function UserApp() {
   const [showPin, setShowPin] = useState(false);
   const [oldPinInput, setOldPinInput] = useState('');
   const [newPinInput, setNewPinInput] = useState('');
-  const [newPicInput, setNewPicInput] = useState('');
 
   const [runningNotice, setRunningNotice] = useState('🎉 স্বাগতম SIM OFFER SHOP এ!');
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -76,13 +75,9 @@ export default function UserApp() {
   const [holdFlexiProgress, setHoldFlexiProgress] = useState(0);
 
   const [historyTab, setHistoryTab] = useState<'add_money' | 'flexiload' | 'drive'>('add_money');
-  
-  const [chatVerified, setChatVerified] = useState(false);
-  const [chatPhoneInput, setChatPhoneInput] = useState('');
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState('');
 
-  // লোকাল স্টোরেজ থেকে লগইন স্টেট চেক করা
   useEffect(() => {
     const savedUser = localStorage.getItem('sim_offer_user');
     if (savedUser) {
@@ -144,12 +139,23 @@ export default function UserApp() {
       if (data) setNotifications(Object.keys(data).map(k => ({ id: k, ...data[k] })).reverse());
       else setNotifications([]);
     });
-    onValue(ref(db, `chats/${chatPhoneInput || userProfile.phone}`), (snapshot) => {
+    onValue(ref(db, `chats/${userProfile.phone}`), (snapshot) => {
       const data = snapshot.val();
       if (data) setChatMessages(Object.keys(data).map(k => ({ id: k, ...data[k] })));
       else setChatMessages([]);
     });
-  }, [userProfile.phone, chatPhoneInput]);
+  }, [userProfile.phone]);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setInputPic(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -275,8 +281,8 @@ export default function UserApp() {
     if (!chatInput.trim()) return;
     const now = new Date();
     const timeStr = now.toLocaleTimeString() + ' (' + now.toLocaleDateString() + ')';
-    push(ref(db, `chats/${chatPhoneInput || userProfile.phone}`), {
-      sender: 'user', text: chatInput.trim(), time: timeStr
+    push(ref(db, `chats/${userProfile.phone}`), {
+      sender: 'user', text: chatInput.trim(), time: timeStr, senderName: userProfile.name
     });
     setChatInput('');
   };
@@ -327,16 +333,11 @@ export default function UserApp() {
   const handleUpdatePin = () => {
     if (oldPinInput !== userProfile.pin) return alert('পুরনো পিন সঠিক নয়!');
     if (!newPinInput || newPinInput.length < 4) return alert('নতুন পিন কমপক্ষে ৪ ডিজিটের হতে হবে!');
-    setUserProfile(prev => ({ ...prev, pin: newPinInput }));
+    const updated = { ...userProfile, pin: newPinInput };
+    setUserProfile(updated);
+    localStorage.setItem('sim_offer_user', JSON.stringify(updated));
     setOldPinInput(''); setNewPinInput('');
     alert('✅ পিন সফলভাবে পরিবর্তন করা হয়েছে!');
-  };
-
-  const handleUpdateProfilePic = () => {
-    if (!newPicInput) return alert('ছবির লিংক দিন!');
-    setUserProfile(prev => ({ ...prev, profilePic: newPicInput }));
-    setNewPicInput('');
-    alert('✅ প্রফাইল ছবি আপডেট হয়েছে!');
   };
 
   useEffect(() => {
@@ -354,11 +355,10 @@ export default function UserApp() {
 
   const visibleOffers = driveOffers.filter(o => o.operator === selectedDriveOp);
 
-  // রোমান্টিক ও প্রিমিয়াম লগইন/রেজিস্ট্রেশন পেজ
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-[#0f0c29] bg-gradient-to-tr from-[#140b2b] via-[#2d124f] to-[#0f0c29] flex items-center justify-center p-4 font-sans text-xs text-white select-none">
-        <div className="w-full max-w-sm bg-white/10 backdrop-blur-2xl border border-white/20 rounded-3xl p-6 shadow-2xl text-center space-y-5 relative overflow-hidden">
+        <div className="w-full max-w-sm bg-white/10 backdrop-blur-2xl border border-white/25 rounded-3xl p-6 shadow-2xl text-center space-y-5 relative overflow-hidden">
           <div className="absolute -top-10 -right-10 w-32 h-32 bg-pink-500/20 rounded-full blur-2xl pointer-events-none" />
           <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl pointer-events-none" />
           
@@ -367,7 +367,7 @@ export default function UserApp() {
           </div>
           <div>
             <h2 className="text-base font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-pink-300 via-purple-200 to-indigo-300">SIM OFFER SHOP</h2>
-            <p className="text-[11px] text-pink-200/70 mt-1">এক্সক্লুসিভ টেলিযোগাযোগ সেবা</p>
+            <p className="text-[11px] text-pink-200/70 mt-1">প্রিমিয়াম টেলিযোগাযোগ সেবা</p>
           </div>
 
           <div className="grid grid-cols-2 gap-1.5 bg-black/40 p-1 rounded-2xl border border-white/10">
@@ -402,8 +402,11 @@ export default function UserApp() {
                 <input type="password" inputMode="numeric" maxLength={6} placeholder="৪ বা ৬ ডিজিট পিন" value={inputPin} onChange={(e) => setInputPin(e.target.value)} className="w-full bg-black/40 border border-white/15 rounded-xl p-2.5 text-xs font-mono font-bold tracking-widest text-white focus:outline-none focus:border-pink-400" />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-pink-200 block mb-0.5">প্রফাইল ছবি (URL) *</label>
-                <input type="text" placeholder="ছবির লিংক দিন" value={inputPic} onChange={(e) => setInputPic(e.target.value)} className="w-full bg-black/40 border border-white/15 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-pink-400" />
+                <label className="text-[10px] font-bold text-pink-200 block mb-0.5">প্রফাইল ছবি আপলোড (গ্যালারি থেকে) *</label>
+                <div className="flex items-center gap-2 bg-black/40 border border-white/15 rounded-xl p-2">
+                  <input type="file" accept="image/*" onChange={handleImageUpload} className="w-full text-[10px] text-slate-300 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-pink-600 file:text-white hover:file:bg-pink-700 cursor-pointer" />
+                </div>
+                {inputPic && <p className="text-[9px] text-emerald-400 mt-1">✓ ছবি সফলভাবে সিলেক্ট হয়েছে</p>}
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -479,7 +482,6 @@ export default function UserApp() {
       <main className="flex-1 p-4 max-w-lg mx-auto w-full overflow-y-auto space-y-4">
         {activeSection === 'menu' && (
           <div className="space-y-4">
-            {/* একক হাইডেবল ব্যালেন্স */}
             <div className="bg-gradient-to-tr from-[#1a1442] via-[#241b5c] to-[#120e2e] border border-white/10 rounded-3xl p-5 text-white shadow-2xl space-y-3 relative overflow-hidden">
               <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-purple-500/20 rounded-full blur-3xl pointer-events-none" />
               <div className="flex justify-between items-center relative z-10">
@@ -505,12 +507,12 @@ export default function UserApp() {
               <button onClick={() => setActiveSection('scratch')} className="bg-[#141032] hover:bg-[#1c1747] border border-white/10 rounded-3xl p-4 flex flex-col items-center text-center shadow-lg active:scale-95 transition-all"><div className="w-12 h-12 rounded-2xl bg-pink-500/10 border border-pink-500/20 text-pink-400 flex items-center justify-center mb-2.5 shadow-inner"><Ticket className="w-5 h-5" /></div><span className="text-xs font-extrabold text-white">Scratch Card</span></button>
               <button onClick={() => setActiveSection('add_balance')} className="bg-[#141032] hover:bg-[#1c1747] border border-white/10 rounded-3xl p-4 flex flex-col items-center text-center shadow-lg active:scale-95 transition-all"><div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-2.5 shadow-inner"><Wallet className="w-5 h-5" /></div><span className="text-xs font-extrabold text-white">Add Balance</span></button>
               <button onClick={() => setActiveSection('history')} className="bg-[#141032] hover:bg-[#1c1747] border border-white/10 rounded-3xl p-4 flex flex-col items-center text-center shadow-lg active:scale-95 transition-all"><div className="w-12 h-12 rounded-2xl bg-violet-500/10 border border-violet-500/20 text-violet-400 flex items-center justify-center mb-2.5 shadow-inner"><History className="w-5 h-5" /></div><span className="text-xs font-extrabold text-white">History</span></button>
-              <button onClick={() => setActiveSection('support')} className="bg-[#141032] hover:bg-[#1c1747] border border-white/10 rounded-3xl p-4 flex flex-col items-center text-center shadow-lg active:scale-95 transition-all"><div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-2.5 shadow-inner"><HelpCircle className="w-5 h-5" /></div><span className="text-xs font-extrabold text-white">Support</span></button>
+              <button onClick={() => setActiveSection('chats')} className="bg-[#141032] hover:bg-[#1c1747] border border-white/10 rounded-3xl p-4 flex flex-col items-center text-center shadow-lg active:scale-95 transition-all"><div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center mb-2.5 shadow-inner"><MessageSquare className="w-5 h-5" /></div><span className="text-xs font-extrabold text-white">Live Chat</span></button>
             </div>
           </div>
         )}
 
-        {/* প্রফাইল ডিটেইলস, ছবি ও পিন মডিফাই */}
+        {/* প্রোফাইল পেজ (ইউজার ডিটেইলস ও ছবি শো করবে) */}
         {activeSection === 'profile' && (
           <div className="space-y-4">
             <div className="bg-[#141032] border border-white/10 rounded-3xl p-5 text-center space-y-3 shadow-xl">
@@ -532,16 +534,9 @@ export default function UserApp() {
               </div>
             </div>
 
-            {/* প্রফাইল ছবি আপডেট */}
-            <div className="bg-[#141032] border border-white/10 rounded-3xl p-4 space-y-3 shadow-xl">
-              <h4 className="font-bold text-white border-b border-white/10 pb-2 flex items-center gap-1.5"><Camera className="w-4 h-4 text-pink-400" /> প্রফাইল ছবি পরিবর্তন করুন</h4>
-              <input type="text" placeholder="ছবির লিংক (Image URL)" value={newPicInput} onChange={(e) => setNewPicInput(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-indigo-500" />
-              <button onClick={handleUpdateProfilePic} className="w-full py-3 bg-gradient-to-r from-pink-600 to-purple-600 text-white font-bold rounded-xl shadow-lg active:scale-95">ছবি আপডেট করুন</button>
-            </div>
-
             {/* পিন পরিবর্তন মডিউল */}
             <div className="bg-[#141032] border border-white/10 rounded-3xl p-4 space-y-3 shadow-xl">
-              <h4 className="font-bold text-white border-b border-white/10 pb-2 flex items-center gap-1.5"><Key className="w-4 h-4 text-indigo-400" /> পিন পরিবর্তন ও মডিফাই করুন</h4>
+              <h4 className="font-bold text-white border-b border-white/10 pb-2 flex items-center gap-1.5"><Key className="w-4 h-4 text-indigo-400" /> পিন পরিবর্তন করুন</h4>
               <div>
                 <label className="text-[10px] font-bold text-slate-400 block mb-1">পুরনো পিন</label>
                 <input type="password" inputMode="numeric" maxLength={6} placeholder="••••" value={oldPinInput} onChange={(e) => setOldPinInput(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 font-mono font-bold text-white focus:outline-none focus:border-indigo-500" />
@@ -590,7 +585,7 @@ export default function UserApp() {
                 </button>
               </div>
 
-              <input type="number" placeholder="টাকার পরিমাণ (৳)" value={addAmount} onChange={(e) => setAddAmount(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 font-bold text-white focus:outline-none focus:border-indigo-500" />
+              <input type="number" inputMode="numeric" placeholder="টাকার পরিমাণ (৳)" value={addAmount} onChange={(e) => setAddAmount(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 font-bold text-white focus:outline-none focus:border-indigo-500" />
               <input type="text" placeholder="TrxID (ট্রানজ্যাকশন আইডি)" value={trxId} onChange={(e) => setTrxId(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 font-bold uppercase text-white focus:outline-none focus:border-indigo-500" />
 
               <div className="pt-2">
@@ -797,7 +792,7 @@ export default function UserApp() {
           </div>
         )}
 
-        {/* হিস্ট্রি (রিচার্জ হিস্ট্রি সহ টাইম স্ট্যাম্প) */}
+        {/* হিস্ট্রি */}
         {activeSection === 'history' && (
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-1 bg-[#141032] border border-white/10 p-1.5 rounded-2xl shadow-inner">
@@ -853,37 +848,26 @@ export default function UserApp() {
           </div>
         )}
 
-        {/* লাইভ চ্যাট (নম্বর ভেরিফিকেশনসহ) */}
+        {/* লাইভ চ্যাট (অটো বাইন্ডড নম্বর দিয়ে চ্যাট) */}
         {activeSection === 'chats' && (
           <div className="bg-[#141032] border border-white/10 rounded-3xl p-4 h-[420px] flex flex-col shadow-xl text-white">
-            {!chatVerified ? (
-              <div className="flex-1 flex flex-col items-center justify-center space-y-3 text-center">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center"><Phone className="w-6 h-6" /></div>
-                <h4 className="font-black text-sm">চ্যাট করতে আপনার ফোন নম্বর দিন</h4>
-                <input type="tel" inputMode="numeric" maxLength={11} placeholder="017XXXXXXXX" value={chatPhoneInput} onChange={(e) => setChatPhoneInput(e.target.value)} className="w-full max-w-xs bg-black/40 border border-white/10 rounded-xl p-3 text-center font-mono font-bold text-white focus:outline-none focus:border-indigo-500" />
-                <button onClick={() => { if (chatPhoneInput.length >= 11) setChatVerified(true); else alert('সঠিক ১১ ডিজিট নম্বর দিন!'); }} className="w-full max-w-xs py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg active:scale-95">চ্যাট শুরু করুন</button>
-              </div>
-            ) : (
-              <>
-                <div className="border-b border-white/10 pb-2 mb-2 flex items-center justify-between">
-                  <span className="font-bold">অ্যাডমিনের সাথে লাইভ চ্যাট ({chatPhoneInput})</span>
-                  <button onClick={() => setChatVerified(false)} className="text-[10px] text-rose-400 underline">নম্বর বদল</button>
+            <div className="border-b border-white/10 pb-2 mb-2 flex items-center justify-between">
+              <span className="font-bold">অ্যাডমিনের সাথে লাইভ চ্যাট ({userProfile.phone})</span>
+              <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" />
+            </div>
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1 py-2">
+              {chatMessages.map((msg, i) => (
+                <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-xs shadow-lg ${msg.sender === 'user' ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-br-none' : 'bg-white/10 border border-white/5 text-slate-200 rounded-bl-none'}`}>
+                    {msg.text}
+                  </div>
                 </div>
-                <div className="flex-1 overflow-y-auto space-y-3 pr-1 py-2">
-                  {chatMessages.map((msg, i) => (
-                    <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-xs shadow-lg ${msg.sender === 'user' ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-br-none' : 'bg-white/10 border border-white/5 text-slate-200 rounded-bl-none'}`}>
-                        {msg.text}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex gap-2 pt-3 border-t border-white/10 mt-2">
-                  <input type="text" placeholder="মেসেজ লিখুন..." value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendChatMessage()} className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-indigo-500" />
-                  <button onClick={handleSendChatMessage} className="p-3 bg-indigo-600 text-white rounded-xl shadow-lg active:scale-95"><Send className="w-4 h-4" /></button>
-                </div>
-              </>
-            )}
+              ))}
+            </div>
+            <div className="flex gap-2 pt-3 border-t border-white/10 mt-2">
+              <input type="text" placeholder="মেসেজ লিখুন..." value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendChatMessage()} className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-indigo-500" />
+              <button onClick={handleSendChatMessage} className="p-3 bg-indigo-600 text-white rounded-xl shadow-lg active:scale-95"><Send className="w-4 h-4" /></button>
+            </div>
           </div>
         )}
       </main>
