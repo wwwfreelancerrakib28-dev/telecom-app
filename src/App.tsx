@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { db } from './firebase';
-import { ref, set, push, onValue, update, get, query, orderByChild, equalTo, child } from 'firebase/database';
+import { ref, set, push, onValue, update, get, child } from 'firebase/database';
 import { 
   Send, Flame, Wallet, History, MessageSquare, Bell, LogOut, ArrowLeft, 
   Ticket, Copy, Check, XCircle, User as UserIcon, Facebook, MessageCircle, 
@@ -167,7 +167,7 @@ export default function UserApp() {
     }
   };
 
-  // ফাস্ট এবং অপ্টিমাইজড লগইন সিস্টেম (Query ব্যবহার করে)
+  // নিখুঁত এবং ফাস্ট লগইন সিস্টেম
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputPhone || inputPhone.length < 11 || !inputPin) {
@@ -176,17 +176,26 @@ export default function UserApp() {
 
     setIsLoading(true);
     try {
-      const usersRef = ref(db, 'users');
-      const q = query(usersRef, orderByChild('phone'), equalTo(inputPhone));
-      const snapshot = await get(q);
+      const dbRef = ref(db, 'users');
+      const snapshot = await get(dbRef);
       
+      setIsLoading(false);
       if (snapshot.exists()) {
         const usersData = snapshot.val();
-        const userKey = Object.keys(usersData)[0];
-        const matchedUser = { id: userKey, ...usersData[userKey] };
+        let matchedUser: any = null;
+
+        Object.keys(usersData).forEach((key) => {
+          const user = usersData[key];
+          if (user.phone === inputPhone) {
+            matchedUser = { id: key, ...user };
+          }
+        });
+
+        if (!matchedUser) {
+          return alert('❌ এই নম্বরে কোনো অ্যাকাউন্ট রেজিস্টার্ড নেই!');
+        }
 
         if (matchedUser.pin !== inputPin) {
-          setIsLoading(false);
           return alert('❌ ভুল পিন দেওয়া হয়েছে! সঠিক পিন দিয়ে আবার চেষ্টা করুন।');
         }
 
@@ -194,12 +203,10 @@ export default function UserApp() {
         setChatPhoneInput(matchedUser.phone);
         setChatVerified(true);
         localStorage.setItem('sim_offer_user', JSON.stringify(matchedUser));
-        setIsLoading(false);
         setIsLoggedIn(true);
         setPopupAlert('🎉 SIM OFFER SHOP এ আপনাকে স্বাগতম!');
       } else {
-        setIsLoading(false);
-        alert('❌ এই নম্বরে কোনো অ্যাকাউন্ট রেজিস্টার্ড নেই!');
+        alert('❌ কোনো অ্যাকাউন্ট পাওয়া যায়নি!');
       }
     } catch (error) {
       console.error(error);
@@ -208,7 +215,7 @@ export default function UserApp() {
     }
   };
 
-  // ফাস্ট এবং অপ্টিমাইজড রেজিস্ট্রেশন সিস্টেম
+  // নিখুঁত এবং ফাস্ট একাউন্ট তৈরি সিস্টেম
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputName || !inputPhone || inputPhone.length < 11 || !inputPin || !inputPic || !inputDivision || !inputDistrict) {
@@ -217,13 +224,22 @@ export default function UserApp() {
 
     setIsLoading(true);
     try {
-      const usersRef = ref(db, 'users');
-      const q = query(usersRef, orderByChild('phone'), equalTo(inputPhone));
-      const snapshot = await get(q);
+      const dbRef = ref(db, 'users');
+      const snapshot = await get(dbRef);
       
       if (snapshot.exists()) {
-        setIsLoading(false);
-        return alert('⚠️ এই মোবাইল নম্বর দিয়ে ইতিমধ্যে একটি অ্যাকাউন্ট তৈরি করা আছে!');
+        const usersData = snapshot.val();
+        let phoneExists = false;
+        Object.keys(usersData).forEach((key) => {
+          if (usersData[key].phone === inputPhone) {
+            phoneExists = true;
+          }
+        });
+
+        if (phoneExists) {
+          setIsLoading(false);
+          return alert('⚠️ এই মোবাইল নম্বর দিয়ে ইতিমধ্যে একটি অ্যাকাউন্ট তৈরি করা আছে!');
+        }
       }
 
       const newUser = {
@@ -236,13 +252,13 @@ export default function UserApp() {
         district: inputDistrict
       };
 
-      await push(usersRef, newUser);
+      await push(dbRef, newUser);
       
+      setIsLoading(false);
       setUserProfile(newUser);
       setChatPhoneInput(newUser.phone);
       setChatVerified(true);
       localStorage.setItem('sim_offer_user', JSON.stringify(newUser));
-      setIsLoading(false);
       setIsLoggedIn(true);
       setPopupAlert('✅ আপনার অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে এবং স্বাগতম!');
 
