@@ -122,7 +122,7 @@ export default function UserApp() {
   const [addAmount, setAddAmount] = useState('');
   const [trxId, setTrxId] = useState('');
   const [copiedNum, setCopiedNum] = useState(false);
-  const [addMoneyNote, setAddMoneyNote] = useState('প্রথমে নাম্বারে টাকা পাঠিয়ে ট্রানজ্যাকশন আইডি দিন।');
+  const [addMoneyNote, setAddMoneyNote] = useState('প্রথমে নাম্বারে টাকা পাঠিয়ে ট্রানজ্যাকশন আইডি দিন।');
 
   const [isHoldingAddMoney, setIsHoldingAddMoney] = useState(false);
   const [holdAddMoneyProgress, setHoldAddMoneyProgress] = useState(0);
@@ -192,6 +192,21 @@ export default function UserApp() {
       clearInterval(checkInterval);
     };
   }, [isOnline]);
+
+  // ফায়ারবেস থেকে ইউজারের ব্যালেন্স এবং প্রফাইল রিয়েল-টাইমে সিংক করার জন্য
+  useEffect(() => {
+    if (!userProfile.phone) return;
+    const userRef = ref(db, `users/${userProfile.phone}`);
+    const unsubscribe = onValue(userRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const updatedData = snapshot.val();
+        const merged = { id: userProfile.phone, ...updatedData };
+        setUserProfile(merged);
+        localStorage.setItem('sim_offer_user', JSON.stringify(merged));
+      }
+    });
+    return () => unsubscribe();
+  }, [userProfile.phone]);
 
   const handleBalanceTap = () => {
     setShowBalance(true);
@@ -1050,8 +1065,8 @@ export default function UserApp() {
                 </span>
                 <div className="h-6 flex items-center justify-center">
                   {showBalance ? (
-                    <span className="text-sm font-black font-mono text-emerald-400 tracking-wider animate-fadeIn">
-                      ৳{userProfile.balance}
+                    <span className="text-sm font-black font-mono text-emerald-400 tracking-wider animate-fadeIn flex items-center gap-1.5">
+                      ৳{userProfile.balance} <RefreshCw className="w-3 h-3 animate-spin text-indigo-300" title="ফায়ারবেস থেকে সিংককৃত" />
                     </span>
                   ) : (
                     <div className="flex items-center gap-1.5 text-indigo-200 text-xs font-bold bg-white/5 border border-white/10 px-3 py-1 rounded-full">
