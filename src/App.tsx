@@ -1,13 +1,78 @@
 import React, { useState, useEffect } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
+import { Network } from '@capacitor/network';
 import { db } from './firebase';
 import { ref, set, push, onValue, get } from 'firebase/database';
 import { 
   Send, Flame, Wallet, History, MessageSquare, Bell, LogOut, ArrowLeft, 
   Ticket, Copy, Check, Facebook, MessageCircle, 
   Eye, ShoppingCart, AlertCircle, Key, HelpCircle, 
-  Sparkles, RefreshCw, Zap, FileText, Download, MapPin, WifiOff, Clock
+  Sparkles, RefreshCw, Zap, FileText, Download, MapPin, WifiOff, Clock, ShieldAlert
 } from 'lucide-react';
+
+// বাংলা ও আরবি সংখ্যা রূপান্তর ফাংশন
+const toBnDigit = (num: number | string) => {
+  const bnDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+  return num.toString().replace(/\d/g, d => bnDigits[parseInt(d, 10)]);
+};
+
+// বঙ্গাব্দ (বাংলা ক্যালেন্ডার - বাংলাদেশ সরকারি নিয়ম)
+const getBanglaDate = (date: Date) => {
+  const d = date.getDate();
+  const m = date.getMonth(); // 0-indexed (Jan = 0)
+  const y = date.getFullYear();
+
+  const isLeapYear = (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0);
+  const falgunDays = isLeapYear ? 30 : 29;
+  const monthDays = [31, 31, 31, 31, 31, 31, 30, 30, 30, 30, falgunDays, 30];
+  const monthNames = ['বৈশাখ', 'জ্যৈষ্ঠ', 'আষাঢ়', 'শ্রাবণ', 'ভাদ্র', 'আশ্বিন', 'কার্তিক', 'অগ্রহায়ণ', 'পৌষ', 'মাঘ', 'ফাল্গুন', 'চৈত্র'];
+
+  let bYear = (m < 3 || (m === 3 && d < 14)) ? y - 594 : y - 593;
+
+  let bDate = 1;
+  let bMonthIndex = 0;
+
+  if (m === 3 && d >= 14) {
+    bDate = d - 13;
+    bMonthIndex = 0;
+  } else {
+    const pohelaBoishakh = new Date(y, 3, 14);
+    let diffDays = Math.floor((date.getTime() - pohelaBoishakh.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays < 0) {
+      const prevPohela = new Date(y - 1, 3, 14);
+      diffDays = Math.floor((date.getTime() - prevPohela.getTime()) / (1000 * 60 * 60 * 24));
+    }
+    for (let i = 0; i < 12; i++) {
+      if (diffDays < monthDays[i]) {
+        bDate = diffDays + 1;
+        bMonthIndex = i;
+        break;
+      }
+      diffDays -= monthDays[i];
+    }
+  }
+
+  return `${toBnDigit(bDate)} ${monthNames[bMonthIndex]} ${toBnDigit(bYear)}`;
+};
+
+// হিজরি (আরবি ক্যালেন্ডার)
+const getHijriDate = (date: Date) => {
+  const hijriMonths = ['মুহররম', 'সফর', 'রবিউল আউয়াল', 'রবিউস সানি', 'জমাদিউল আউয়াল', 'জমাদিউস সানি', 'রজব', 'শাবান', 'রমজান', 'শাওয়াল', 'জিলকদ', 'জিলহজ্জ'];
+  try {
+    const formatter = new Intl.DateTimeFormat('en-u-ca-islamic-umalqura', {
+      day: 'numeric',
+      month: 'numeric',
+      year: 'numeric'
+    });
+    const parts = formatter.formatToParts(date);
+    const day = parts.find(p => p.type === 'day')?.value || '1';
+    const month = parseInt(parts.find(p => p.type === 'month')?.value || '1', 10);
+    const year = parts.find(p => p.type === 'year')?.value || '1448';
+    return `${toBnDigit(day)} ${hijriMonths[month - 1] || ''} ${toBnDigit(year)}`;
+  } catch (e) {
+    return 'হিজরি ক্যালেন্ডার';
+  }
+};
 
 export default function UserApp() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -24,8 +89,20 @@ export default function UserApp() {
   const [activeSection, setActiveSection] = useState<'menu' | 'flexiload' | 'drive' | 'scratch' | 'add_balance' | 'history' | 'chats' | 'notifications' | 'profile' | 'support'>('menu');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
   
+  // সম্পূর্ণ রিয়েল-টাইম অফলাইন ডিটেকশন
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  // পিন রিসেট ও অ্যান্টি-হয়রানি সিকিউরিটি স্টেট
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotPhone, setForgotPhone] = useState('');
+  const [forgotError, setForgotError] = useState('');
+  const [forgotStep, setForgotStep] = useState<'input' | 'options'>('input');
+  const [isVerifyingForgot, setIsVerifyingForgot] = useState(false);
+  const [failedForgotAttempts, setFailedForgotAttempts] = useState(0);
+  const [isForgotBlocked, setIsForgotBlocked] = useState(false);
+  const [verifiedPhoneHolder, setVerifiedPhoneHolder] = useState('');
+
   const [userProfile, setUserProfile] = useState({
     id: '', name: '', phone: '', pin: '', balance: 500, division: '', district: ''
   });
@@ -96,24 +173,27 @@ export default function UserApp() {
     return () => clearInterval(timer);
   }, []);
 
-  // নেটওয়ার্ক স্ট্যাটাস মনিটর (রিয়েলটাইম ডিটেকশন)
+  // নেটওয়ার্ক স্ট্যাটাস ট্র্যাকিং
   useEffect(() => {
-    const checkConnection = () => {
-      setIsOnline(navigator.onLine);
-    };
+    Network.getStatus().then(status => setIsOnline(status.connected));
+    const netListener = Network.addListener('networkStatusChange', status => {
+      setIsOnline(status.connected);
+    });
 
-    window.addEventListener('online', checkConnection);
-    window.addEventListener('offline', checkConnection);
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
 
-    // সক্রিয় পিং চেক (ইন্টারনেট ডাটা ফুরিয়ে গেলে বা ড্রপ করলে ধরার জন্য)
-    const interval = setInterval(() => {
-      setIsOnline(navigator.onLine);
-    }, 2000);
+    const checkInterval = setInterval(() => {
+      if (!navigator.onLine) setIsOnline(false);
+    }, 1500);
 
     return () => {
-      window.removeEventListener('online', checkConnection);
-      window.removeEventListener('offline', checkConnection);
-      clearInterval(interval);
+      netListener.then(l => l.remove());
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      clearInterval(checkInterval);
     };
   }, []);
 
@@ -197,7 +277,7 @@ export default function UserApp() {
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!navigator.onLine) {
+    if (!isOnline || !navigator.onLine) {
       setIsOnline(false);
       return;
     }
@@ -238,7 +318,7 @@ export default function UserApp() {
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!navigator.onLine) {
+    if (!isOnline || !navigator.onLine) {
       setIsOnline(false);
       return;
     }
@@ -283,6 +363,66 @@ export default function UserApp() {
       setIsLoading(false);
       alert('রেজিস্ট্রেশন করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
     }
+  };
+
+  // পিন রিসেট ভেরিফিকেশন ও স্প্যাম প্রটেকশন
+  const handleStartForgotFlow = () => {
+    setForgotPhone(inputPhone || '');
+    setForgotError('');
+    setForgotStep('input');
+    setShowForgotModal(true);
+  };
+
+  const handleVerifyForgotPhone = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError('');
+
+    if (isForgotBlocked) {
+      setForgotError('অতিরিক্ত ভুল চেষ্টার কারণে সেবাটি সাময়িক বন্ধ আছে। ৫ মিনিট পর আবার চেষ্টা করুন।');
+      return;
+    }
+
+    const targetNum = forgotPhone.trim();
+    if (!targetNum || targetNum.length < 11) {
+      setForgotError('সঠিক ১১ ডিজিটের মোবাইল নম্বর লিখুন!');
+      return;
+    }
+
+    setIsVerifyingForgot(true);
+    try {
+      const checkRef = ref(db, `users/${targetNum}`);
+      const snap = await get(checkRef);
+      setIsVerifyingForgot(false);
+
+      if (snap.exists()) {
+        setVerifiedPhoneHolder(targetNum);
+        setForgotStep('options');
+        setFailedForgotAttempts(0);
+      } else {
+        const nextAttempts = failedForgotAttempts + 1;
+        setFailedForgotAttempts(nextAttempts);
+
+        if (nextAttempts >= 3) {
+          setIsForgotBlocked(true);
+          setTimeout(() => {
+            setIsForgotBlocked(false);
+            setFailedForgotAttempts(0);
+          }, 5 * 60 * 1000);
+          setForgotError('অতিরিক্ত ভুল চেষ্টার কারণে ৫ মিনিটের জন্য ব্লক করা হয়েছে!');
+        } else {
+          setForgotError('এই ফোন নাম্বার দিয়ে কোনো একাউন্ট নেই। দয়া করে সঠিক ফোন নাম্বার দিয়ে আবার চেষ্টা করুন।');
+        }
+      }
+    } catch (err) {
+      setIsVerifyingForgot(false);
+      setForgotError('যাচাই করতে সমস্যা হচ্ছে। ইন্টারনেট চেক করুন।');
+    }
+  };
+
+  const handleCopyAndRedirectFacebook = () => {
+    navigator.clipboard.writeText(`পিন রিসেট রিকোয়েস্ট: ${verifiedPhoneHolder}`);
+    alert(`আপনার রেজিস্টার্ড নম্বর (${verifiedPhoneHolder}) কপি করা হয়েছে! ফেসবুক পেজে মেসেজে পেস্ট করে পাঠিয়ে দিন।`);
+    window.open(adminSocialLinks.facebookPage || 'https://facebook.com', '_blank');
   };
 
   const handleGoToLoginFromPopup = () => {
@@ -465,7 +605,9 @@ export default function UserApp() {
 
   useEffect(() => {
     const backListener = CapacitorApp.addListener('backButton', () => {
-      if (orderingOffer || buyingCard || activeSection !== 'menu') {
+      if (showForgotModal) {
+        setShowForgotModal(false);
+      } else if (orderingOffer || buyingCard || activeSection !== 'menu') {
         if (orderingOffer) setOrderingOffer(null);
         else if (buyingCard) setBuyingCard(null);
         else setActiveSection('menu');
@@ -474,33 +616,33 @@ export default function UserApp() {
       }
     });
     return () => { backListener.then(h => h.remove()); };
-  }, [orderingOffer, buyingCard, activeSection]);
+  }, [showForgotModal, orderingOffer, buyingCard, activeSection]);
 
   const visibleOffers = driveOffers.filter(o => o.operator === selectedDriveOp);
 
-  // ইন্টারনেট না থাকলে অ্যাপ লক স্ক্রিন (সম্পূর্ণ ব্লক)
+  // ইন্টারনেট না থাকলে ইনস্ট্যান্ট ফুল-স্ক্রিন ব্লক
   if (!isOnline) {
     return (
-      <div className="fixed inset-0 z-50 bg-[#0d0b21] flex flex-col items-center justify-center p-6 text-center text-white font-sans select-none">
-        <div className="w-24 h-24 bg-rose-500/10 border-2 border-rose-500/40 rounded-3xl flex items-center justify-center text-rose-400 mb-5 animate-pulse shadow-2xl shadow-rose-500/20">
+      <div className="fixed inset-0 z-[999] bg-[#0c0a21] flex flex-col items-center justify-center p-6 text-center text-white font-sans select-none">
+        <div className="w-24 h-24 bg-rose-500/10 border border-rose-500/30 rounded-3xl flex items-center justify-center text-rose-400 mb-5 shadow-2xl animate-pulse">
           <WifiOff className="w-12 h-12 stroke-[2.5]" />
         </div>
-        <h2 className="text-xl font-black text-rose-300">ইন্টারনেট সংযোগ নেই!</h2>
-        <p className="text-xs text-slate-300 mt-2.5 max-w-xs leading-relaxed font-medium">
-          <strong className="text-pink-300">SIM OFFER SHOP</strong> ব্যবহার করার জন্য সক্রিয় ইন্টারনেট সংযোগ আবশ্যক। আপনার মোবাইল ডাটা বা ওয়াইফাই চালু করুন।
+        <h2 className="text-xl font-black text-rose-400">কোনো ইন্টারনেট সংযোগ নেই!</h2>
+        <p className="text-xs text-slate-300 mt-2 max-w-xs leading-relaxed">
+          <strong className="text-pink-300">SIM OFFER SHOP</strong> ব্যবহার করার জন্য ইন্টারনেট সংযোগ আবশ্যক। আপনার মোবাইল ডাটা বা ওয়াইফাই চালু করুন।
         </p>
-        
         <button 
-          onClick={() => {
-            if (navigator.onLine) {
+          onClick={async () => {
+            const status = await Network.getStatus();
+            if (status.connected) {
               setIsOnline(true);
             } else {
-              alert('⚠️ ইন্টারনেট সংযোগ এখনো চালু হয়নি! দয়া করে ডাটা বা ওয়াইফাই অন করুন।');
+              alert('⚠️ আপনার ফোনে ইন্টারনেট সংযোগ এখনো চালু হয়নি!');
             }
           }} 
           className="mt-8 px-8 py-3.5 bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 text-white font-black text-xs rounded-2xl shadow-xl shadow-pink-600/30 active:scale-95 transition-all flex items-center gap-2"
         >
-          <RefreshCw className="w-4 h-4" /> পুনরায় চেক করুন
+          <RefreshCw className="w-4 h-4" /> পুনরায় চেষ্টা করুন
         </button>
       </div>
     );
@@ -578,17 +720,16 @@ export default function UserApp() {
                 )}
               </button>
 
-              {/* পিন ভুলে গেলে সরাসরি হোয়াটসঅ্যাপ যোগাযোগ বাটন */}
+              {/* পিন ভুলে গেলে সাপোর্টে যোগাযোগের বাটন */}
               <div className="pt-2 text-center">
-                <a 
-                  href={`https://wa.me/${adminSocialLinks.whatsappNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`আসসালামু আলাইকুম এডমিন, আমি SIM OFFER SHOP অ্যাপে আমার পিন ভুলে গেছি। আমার নম্বর: ${inputPhone || '01XXXXXXXXX'}। দয়া করে আমার পিন রিসেট করে দিন।`)}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 text-[11px] font-bold text-pink-300/90 hover:text-pink-200 transition-colors py-1 px-2 rounded-lg bg-white/5 border border-white/10"
+                <button 
+                  type="button"
+                  onClick={handleStartForgotFlow}
+                  className="inline-flex items-center gap-1.5 text-[11px] font-bold text-pink-300/90 hover:text-pink-200 transition-colors py-1.5 px-3 rounded-lg bg-white/5 border border-white/10 active:scale-95"
                 >
                   <Key className="w-3.5 h-3.5 text-yellow-400" />
                   <span>পিন ভুলে গেছেন? এডমিন সাপোর্ট</span>
-                </a>
+                </button>
               </div>
             </form>
           ) : (
@@ -675,6 +816,105 @@ export default function UserApp() {
             </form>
           )}
         </div>
+
+        {/* পিন রিকভারি মডাল (ডেটাবেজ ভেরিফিকেশন + অ্যান্টি-হয়রানি সুরক্ষা) */}
+        {showForgotModal && (
+          <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="bg-[#18133a] border border-white/15 rounded-3xl p-5 max-w-xs w-full text-center space-y-4 shadow-2xl text-white">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-pink-500 to-indigo-600 text-white flex items-center justify-center mx-auto shadow-md">
+                <HelpCircle className="w-6 h-6" />
+              </div>
+
+              {forgotStep === 'input' ? (
+                <form onSubmit={handleVerifyForgotPhone} className="space-y-3">
+                  <h4 className="text-sm font-black text-white">পিন রিসেট ভেরিফিকেশন</h4>
+                  <p className="text-[11px] text-slate-300">
+                    আপনার একাউন্টে ব্যবহৃত সঠিক মোবাইল নম্বরটি লিখুন:
+                  </p>
+
+                  <input 
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={11}
+                    placeholder="01XXXXXXXXX"
+                    value={forgotPhone}
+                    onChange={(e) => {
+                      setForgotPhone(e.target.value);
+                      setForgotError('');
+                    }}
+                    className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs font-mono font-bold text-center text-white focus:outline-none focus:border-pink-400"
+                  />
+
+                  {forgotError && (
+                    <div className="bg-rose-500/10 border border-rose-500/30 p-2.5 rounded-xl text-rose-300 text-[10px] font-bold text-left flex items-start gap-1.5 leading-tight">
+                      <ShieldAlert className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
+                      <span>{forgotError}</span>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 pt-1">
+                    <button 
+                      type="button" 
+                      onClick={() => setShowForgotModal(false)}
+                      className="flex-1 py-2.5 bg-white/10 text-slate-300 rounded-xl font-bold text-xs"
+                    >
+                      বাতিল
+                    </button>
+                    <button 
+                      type="submit" 
+                      disabled={isVerifyingForgot || isForgotBlocked}
+                      className="flex-1 py-2.5 bg-gradient-to-r from-pink-600 to-purple-600 text-white font-bold rounded-xl text-xs shadow-lg active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                    >
+                      {isVerifyingForgot ? (
+                        <>
+                          <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <span>যাচাই হচ্ছে...</span>
+                        </>
+                      ) : (
+                        'এগিয়ে যান'
+                      )}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="space-y-3.5">
+                  <h4 className="text-sm font-black text-emerald-400">একাউন্ট ভেরিফাইড!</h4>
+                  <p className="text-[11px] text-slate-300">
+                    নম্বর: <strong className="text-pink-300 font-mono">{verifiedPhoneHolder}</strong>
+                  </p>
+                  <p className="text-[10px] text-slate-400 leading-tight">
+                    এডমিনকে মেসেজ পাঠাতে যেকোনো একটি মাধ্যম বেছে নিন:
+                  </p>
+
+                  <div className="space-y-2 pt-1">
+                    <a 
+                      href={`https://wa.me/${adminSocialLinks.whatsappNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`আসসালামু আলাইকুম এডমিন, আমি SIM OFFER SHOP অ্যাপের পিন ভুলে গেছি।\nআমার রেজিস্টার্ড মোবাইল নম্বর: ${verifiedPhoneHolder}\nদয়া করে আমার পিনটি রিসেট করে দিন।`)}`}
+                      target="_blank" 
+                      rel="noreferrer" 
+                      className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 text-xs shadow-lg active:scale-95 transition-all"
+                    >
+                      <MessageCircle className="w-4 h-4" /> হোয়াটসঅ্যাপে মেসেজ দিন
+                    </a>
+                    <button 
+                      type="button"
+                      onClick={handleCopyAndRedirectFacebook}
+                      className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 text-xs shadow-lg active:scale-95 transition-all"
+                    >
+                      <Facebook className="w-4 h-4" /> ফেসবুক পেজে মেসেজ দিন
+                    </button>
+                  </div>
+
+                  <button 
+                    onClick={() => setShowForgotModal(false)}
+                    className="w-full py-2 bg-white/10 text-slate-300 rounded-xl font-bold text-xs"
+                  >
+                    বন্ধ করুন
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {registerSuccessPopup && (
           <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
@@ -803,7 +1043,7 @@ export default function UserApp() {
       >
         {activeSection === 'menu' && (
           <div className="space-y-4">
-            {/* কমপ্যাক্ট বিকাশ-স্টাইল ব্যালেন্স বার + লাইভ ক্লক ও তারিখ */}
+            {/* কমপ্যাক্ট বিকাশ-স্টাইল ব্যালেন্স বার + ত্রি-ভাষিক লাইভ ঘড়ি ও ক্যালেন্ডার */}
             <div className="grid grid-cols-2 gap-2.5 items-stretch">
               <div 
                 onClick={handleBalanceTap}
@@ -826,13 +1066,23 @@ export default function UserApp() {
                 </div>
               </div>
 
-              <div className="bg-[#141032] border border-white/10 rounded-2xl p-3 flex flex-col justify-center items-center text-center shadow-lg">
-                <div className="flex items-center gap-1.5 text-indigo-300 font-mono text-sm font-black">
-                  <Clock className="w-3.5 h-3.5 text-pink-400 animate-pulse" />
+              {/* ত্রি-ভাষিক ক্লক উইজেট (ইংরেজি + বাংলা + আরবি) */}
+              <div className="bg-[#141032] border border-white/10 rounded-2xl p-2.5 flex flex-col justify-center items-center text-center shadow-lg">
+                <div className="flex items-center gap-1 text-indigo-300 font-mono text-xs font-black">
+                  <Clock className="w-3 h-3 text-pink-400 animate-pulse" />
                   {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                 </div>
-                <div className="text-[10px] text-slate-400 font-medium mt-1">
-                  {currentTime.toLocaleDateString('bn-BD', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                
+                {/* ইংরেজি তারিখ */}
+                <div className="text-[10px] text-white font-bold mt-1">
+                  {currentTime.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </div>
+                
+                {/* বাংলা ও আরবি হিজরি ক্যালেন্ডার */}
+                <div className="text-[8.5px] text-slate-400 font-medium mt-0.5 leading-tight">
+                  <span className="text-amber-300/90">{getBanglaDate(currentTime)}</span>
+                  <span className="mx-1 text-slate-500">•</span>
+                  <span className="text-emerald-300/90">{getHijriDate(currentTime)}</span>
                 </div>
               </div>
             </div>
