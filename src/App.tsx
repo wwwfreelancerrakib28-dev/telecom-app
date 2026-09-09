@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { db } from './firebase';
 import { ref, set, push, onValue, update } from 'firebase/database';
-import { 
+import { 
   Send, Flame, Wallet, History, MessageSquare, Bell, LogOut, ArrowLeft, 
   Ticket, Copy, Check, XCircle, User as UserIcon, Facebook, MessageCircle, 
   Eye, EyeOff, Lock, ShoppingCart, AlertCircle, Clock, Key, HelpCircle, 
-  Sparkles, RefreshCw, Zap, Info, FileText, Download
+  Sparkles, RefreshCw, Zap, Info, FileText, Download, Camera, Phone
 } from 'lucide-react';
 
 export default function UserApp() {
@@ -17,20 +17,20 @@ export default function UserApp() {
   const [inputPin, setInputPin] = useState('');
   const [inputName, setInputName] = useState('');
 
-  // ফোর্স আপডেট স্টেট
   const [forceUpdate, setForceUpdate] = useState({ enabled: false, link: '#' });
-
   const [activeSection, setActiveSection] = useState<'menu' | 'flexiload' | 'drive' | 'scratch' | 'add_balance' | 'history' | 'chats' | 'notifications' | 'profile' | 'support'>('menu');
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   const [userProfile, setUserProfile] = useState({
-    id: '1', name: 'Md. Tanvir Hasan', phone: '01712345678', pin: '1234', mainBalance: 950, driveBalance: 3820
+    id: '1', name: 'Md. Tanvir Hasan', phone: '01712345678', pin: '1234', balance: 4770, profilePic: ''
   });
 
+  const [showBalance, setShowBalance] = useState(false);
   const [adminSocialLinks, setAdminSocialLinks] = useState({ facebookPage: '', whatsappNumber: '' });
   const [showPin, setShowPin] = useState(false);
   const [oldPinInput, setOldPinInput] = useState('');
   const [newPinInput, setNewPinInput] = useState('');
+  const [newPicInput, setNewPicInput] = useState('');
 
   const [runningNotice, setRunningNotice] = useState('🎉 স্বাগতম SIM OFFER SHOP এ!');
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -38,24 +38,17 @@ export default function UserApp() {
   const [paymentNumbers, setPaymentNumbers] = useState({ bkash: '01728116153', nagad: '01728116153', rocket: '01728116153' });
   const [addMoneyEnabled, setAddMoneyEnabled] = useState(true);
   const [selectedMethod, setSelectedMethod] = useState('bKash');
-  const [balanceType, setBalanceType] = useState('main');
   const [addAmount, setAddAmount] = useState('');
   const [trxId, setTrxId] = useState('');
   const [copiedNum, setCopiedNum] = useState(false);
-
-  // ডায়নামিক এড-মানি নোট
   const [addMoneyNote, setAddMoneyNote] = useState('প্রথমে নাম্বারে টাকা পাঠিয়ে ট্রানজ্যাকশন আইডি দিন।');
 
-  // হোল্ড টু কনফার্ম (Add Money)
   const [isHoldingAddMoney, setIsHoldingAddMoney] = useState(false);
   const [holdAddMoneyProgress, setHoldAddMoneyProgress] = useState(0);
 
-  // হোল্ড টু কনফার্ম (Flexiload)
-  const [isHoldingFlexi, setIsHoldingFlexi] = useState(false);
-  const [holdFlexiProgress, setHoldFlexiProgress] = useState(0);
-
   const [masterDriveEnabled, setMasterDriveEnabled] = useState(true);
   const [simStatus, setSimStatus] = useState<Record<string, boolean>>({});
+  
   const [userAddMoneyLogs, setUserAddMoneyLogs] = useState<any[]>([]);
   const [userFlexiLogs, setUserFlexiLogs] = useState<any[]>([]);
   const [userDriveLogs, setUserDriveLogs] = useState<any[]>([]);
@@ -76,8 +69,14 @@ export default function UserApp() {
   const [simType, setSimType] = useState('Prepaid');
   const [flexiAmount, setFlexiAmount] = useState('');
   const [flexiPin, setFlexiPin] = useState('');
+  const [isHoldingFlexi, setIsHoldingFlexi] = useState(false);
+  const [holdFlexiProgress, setHoldFlexiProgress] = useState(0);
 
   const [historyTab, setHistoryTab] = useState<'add_money' | 'flexiload' | 'drive'>('add_money');
+  
+  // লাইভ চ্যাট ভেরিফিকেশন স্টেট
+  const [chatVerified, setChatVerified] = useState(false);
+  const [chatPhoneInput, setChatPhoneInput] = useState('');
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState('');
 
@@ -100,36 +99,46 @@ export default function UserApp() {
     });
     onValue(ref(db, 'offers'), (snapshot) => {
       const data = snapshot.val();
-      if (data) setDriveOffers(Object.keys(data).map(key => ({ id: key, ...data[key] })));
+      if (data) setDriveOffers(Object.keys(data).map(key => ({ id: key, ...data[key] })).reverse());
       else setDriveOffers([]);
     });
     onValue(ref(db, 'scratchCards'), (snapshot) => {
       const data = snapshot.val();
-      if (data) setScratchCards(Object.keys(data).map(key => ({ id: key, ...data[key] })));
+      if (data) setScratchCards(Object.keys(data).map(key => ({ id: key, ...data[key] })).reverse());
       else setScratchCards([]);
     });
     onValue(ref(db, 'addMoneyLogs'), (snapshot) => {
       const data = snapshot.val();
-      if (data) setUserAddMoneyLogs(Object.keys(data).map(key => ({ id: key, ...data[key] })));
+      if (data) {
+        const list = Object.keys(data).map(key => ({ id: key, ...data[key] })).reverse();
+        setUserAddMoneyLogs(list.filter(l => l.userPhone === userProfile.phone));
+      } else { setUserAddMoneyLogs([]); }
     });
     onValue(ref(db, 'rechargeOrders'), (snapshot) => {
       const data = snapshot.val();
-      if (data) setUserFlexiLogs(Object.keys(data).map(key => ({ id: key, ...data[key] })));
+      if (data) {
+        const list = Object.keys(data).map(key => ({ id: key, ...data[key] })).reverse();
+        setUserFlexiLogs(list.filter(l => l.userPhone === userProfile.phone));
+      } else { setUserFlexiLogs([]); }
     });
     onValue(ref(db, 'driveOrders'), (snapshot) => {
       const data = snapshot.val();
-      if (data) setUserDriveLogs(Object.keys(data).map(key => ({ id: key, ...data[key] })));
+      if (data) {
+        const list = Object.keys(data).map(key => ({ id: key, ...data[key] })).reverse();
+        setUserDriveLogs(list.filter(l => l.userPhone === userProfile.phone));
+      } else { setUserDriveLogs([]); }
     });
     onValue(ref(db, 'notifications'), (snapshot) => {
       const data = snapshot.val();
-      if (data) setNotifications(Object.keys(data).map(k => ({ id: k, ...data[k] })));
+      if (data) setNotifications(Object.keys(data).map(k => ({ id: k, ...data[k] })).reverse());
       else setNotifications([]);
     });
-    onValue(ref(db, `chats/${userProfile.id}`), (snapshot) => {
+    onValue(ref(db, `chats/${chatPhoneInput || userProfile.phone}`), (snapshot) => {
       const data = snapshot.val();
       if (data) setChatMessages(Object.keys(data).map(k => ({ id: k, ...data[k] })));
+      else setChatMessages([]);
     });
-  }, [userProfile.id]);
+  }, [userProfile.phone, chatPhoneInput]);
 
   const handleCopyPaymentNum = (num: string) => {
     navigator.clipboard.writeText(num);
@@ -137,7 +146,6 @@ export default function UserApp() {
     setTimeout(() => setCopiedNum(false), 2000);
   };
 
-  // এড-মানি হোল্ড অ্যানিমেশন
   useEffect(() => {
     let interval: any;
     if (isHoldingAddMoney) {
@@ -158,16 +166,17 @@ export default function UserApp() {
     if (!addAmount || Number(addAmount) <= 0) return alert('সঠিক পরিমাণ লিখুন!');
     if (!trxId || trxId.length < 5) return alert('সঠিক TrxID লিখুন!');
 
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString() + ' (' + now.toLocaleDateString() + ')';
+
     push(ref(db, 'addMoneyLogs'), {
-      userId: userProfile.id, userName: userProfile.name, userPhone: userProfile.phone, method: selectedMethod,
-      amount: Number(addAmount), balanceType: balanceType, trxId: trxId.toUpperCase(),
-      time: new Date().toLocaleTimeString(), status: 'Pending'
+      userName: userProfile.name, userPhone: userProfile.phone, method: selectedMethod,
+      amount: Number(addAmount), trxId: trxId.toUpperCase(), time: timeStr, status: 'Pending'
     });
     setPopupAlert('আপনার Add Money রিকোয়েস্ট Success হয়েছে, অল্প সময়ের মধ্যে ব্যালেন্স এড হয়ে যাবে।');
     setAddAmount(''); setTrxId('');
   };
 
-  // ফ্লেক্সিলোড হোল্ড অ্যানিমেশন
   useEffect(() => {
     let interval: any;
     if (isHoldingFlexi) {
@@ -187,14 +196,17 @@ export default function UserApp() {
     if (!flexiPhone || flexiPhone.length < 11) return alert('সঠিক নম্বর দিন!');
     if (!flexiAmount || Number(flexiAmount) <= 0) return alert('টাকার পরিমাণ দিন!');
     if (flexiPin !== userProfile.pin) return alert('পিন সঠিক নয়!');
-    if (userProfile.mainBalance < Number(flexiAmount)) return alert('পর্যাপ্ত ব্যালেন্স নেই!');
+    if (userProfile.balance < Number(flexiAmount)) return alert('পর্যাপ্ত ব্যালেন্স নেই!');
 
-    const newMainBal = userProfile.mainBalance - Number(flexiAmount);
-    setUserProfile(prev => ({ ...prev, mainBalance: newMainBal }));
+    const newBal = userProfile.balance - Number(flexiAmount);
+    setUserProfile(prev => ({ ...prev, balance: newBal }));
+
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString() + ' (' + now.toLocaleDateString() + ')';
 
     push(ref(db, 'rechargeOrders'), {
-      userId: userProfile.id, userName: userProfile.name, userPhone: userProfile.phone, operator: flexiOperator,
-      amount: Number(flexiAmount), targetNumber: flexiPhone, time: new Date().toLocaleTimeString(),
+      userName: userProfile.name, userPhone: userProfile.phone, operator: flexiOperator,
+      amount: Number(flexiAmount), targetNumber: flexiPhone, time: timeStr,
       status: 'Pending', note: simType
     });
     setPopupAlert('🚀 আপনার ফ্লেক্সিলোড Success হয়েছে, অল্প সময়ের মধ্যে চলে যাবে।');
@@ -217,8 +229,10 @@ export default function UserApp() {
 
   const handleSendChatMessage = () => {
     if (!chatInput.trim()) return;
-    push(ref(db, `chats/${userProfile.id}`), {
-      sender: 'user', text: chatInput.trim(), time: new Date().toLocaleTimeString()
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString() + ' (' + now.toLocaleDateString() + ')';
+    push(ref(db, `chats/${chatPhoneInput || userProfile.phone}`), {
+      sender: 'user', text: chatInput.trim(), time: timeStr
     });
     setChatInput('');
   };
@@ -226,14 +240,17 @@ export default function UserApp() {
   const handleConfirmBuyCard = () => {
     if (!buyingCard) return;
     if (!targetCardNumber || targetCardNumber.length < 11) return alert('সঠিক ১১ ডিজিট নম্বর লিখুন!');
-    if (userProfile.mainBalance < buyingCard.price) return alert('মেইন ব্যালেন্স পর্যাপ্ত নয়!');
+    if (userProfile.balance < buyingCard.price) return alert('ব্যালেন্স পর্যাপ্ত নয়!');
 
-    const newMainBal = userProfile.mainBalance - buyingCard.price;
-    setUserProfile(prev => ({ ...prev, mainBalance: newMainBal }));
+    const newBal = userProfile.balance - buyingCard.price;
+    setUserProfile(prev => ({ ...prev, balance: newBal }));
+
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString() + ' (' + now.toLocaleDateString() + ')';
 
     push(ref(db, 'rechargeOrders'), {
-      userId: userProfile.id, userName: userProfile.name, userPhone: userProfile.phone, operator: buyingCard.type,
-      amount: buyingCard.price, targetNumber: targetCardNumber, time: new Date().toLocaleTimeString(),
+      userName: userProfile.name, userPhone: userProfile.phone, operator: buyingCard.type,
+      amount: buyingCard.price, targetNumber: targetCardNumber, time: timeStr,
       status: 'Pending', note: 'Scratch Card: ' + buyingCard.title
     });
 
@@ -245,19 +262,37 @@ export default function UserApp() {
     if (!targetDriveNumber || targetDriveNumber.length < 11) return alert('সঠিক ১১ ডিজিট নম্বর লিখুন!');
     if (hasSimLoan === null) return alert('লোন আছে কি না সিলেক্ট করুন!');
     if (hasSimLoan === true) return alert('⚠️ লোন থাকা অবস্থায় ড্রাইভ নেওয়া যাবে না!');
-    if (userProfile.driveBalance < orderingOffer.price) return alert('ড্রাইভ ব্যালেন্স পর্যাপ্ত নয়!');
+    if (userProfile.balance < orderingOffer.price) return alert('ব্যালেন্স পর্যাপ্ত নয়!');
 
-    const newDriveBal = userProfile.driveBalance - orderingOffer.price;
-    setUserProfile(prev => ({ ...prev, driveBalance: newDriveBal }));
+    const newBal = userProfile.balance - orderingOffer.price;
+    setUserProfile(prev => ({ ...prev, balance: newBal }));
+
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString() + ' (' + now.toLocaleDateString() + ')';
 
     push(ref(db, 'driveOrders'), {
-      userId: userProfile.id, userName: userProfile.name, userPhone: userProfile.phone, operator: orderingOffer.operator,
+      userName: userProfile.name, userPhone: userProfile.phone, operator: orderingOffer.operator,
       packageTitle: orderingOffer.title, price: orderingOffer.price, targetNumber: targetDriveNumber,
-      time: new Date().toLocaleTimeString(), status: 'Pending', hasLoan: false
+      time: timeStr, status: 'Pending', hasLoan: false
     });
 
     setPopupAlert(`⏳ ড্রাইভ অর্ডার সফলভাবে সাবমিট হয়েছে!`);
     setOrderingOffer(null); setTargetDriveNumber(''); setHasSimLoan(null);
+  };
+
+  const handleUpdatePin = () => {
+    if (oldPinInput !== userProfile.pin) return alert('পুরনো পিন সঠিক নয়!');
+    if (!newPinInput || newPinInput.length < 4) return alert('নতুন পিন কমপক্ষে ৪ ডিজিটের হতে হবে!');
+    setUserProfile(prev => ({ ...prev, pin: newPinInput }));
+    setOldPinInput(''); setNewPinInput('');
+    alert('✅ পিন সফলভাবে পরিবর্তন করা হয়েছে!');
+  };
+
+  const handleUpdateProfilePic = () => {
+    if (!newPicInput) return alert('ছবির লিংক দিন!');
+    setUserProfile(prev => ({ ...prev, profilePic: newPicInput }));
+    setNewPicInput('');
+    alert('✅ প্রফাইল ছবি আপডেট হয়েছে!');
   };
 
   useEffect(() => {
@@ -291,7 +326,7 @@ export default function UserApp() {
             <button onClick={() => setAuthView('register')} className={`py-2.5 rounded-xl font-bold transition-all ${authView === 'register' ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg' : 'text-slate-400'}`}>একাউন্ট তৈরি</button>
           </div>
           {authView === 'login' ? (
-            <form onSubmit={(e) => { e.preventDefault(); if (inputPhone && inputPin) setIsLoggedIn(true); }} className="space-y-3.5 text-left">
+            <form onSubmit={(e) => { e.preventDefault(); if (inputPhone && inputPin) { setUserProfile(prev => ({ ...prev, phone: inputPhone, pin: inputPin })); setIsLoggedIn(true); } }} className="space-y-3.5 text-left">
               <div>
                 <label className="text-[10px] font-bold text-indigo-200 block mb-1">মোবাইল নম্বর</label>
                 <input type="tel" maxLength={11} placeholder="017XXXXXXXX" value={inputPhone} onChange={(e) => setInputPhone(e.target.value)} className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs font-mono font-bold text-white focus:outline-none focus:border-indigo-400 shadow-inner" />
@@ -303,7 +338,7 @@ export default function UserApp() {
               <button type="submit" className="w-full py-3.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:opacity-90 text-white font-black text-xs rounded-xl shadow-xl shadow-indigo-600/30 transition-all active:scale-95">লগইন করুন</button>
             </form>
           ) : (
-            <form onSubmit={(e) => { e.preventDefault(); if (inputName && inputPhone && inputPin) setIsLoggedIn(true); }} className="space-y-3.5 text-left">
+            <form onSubmit={(e) => { e.preventDefault(); if (inputName && inputPhone && inputPin) { setUserProfile(prev => ({ ...prev, name: inputName, phone: inputPhone, pin: inputPin })); setIsLoggedIn(true); } }} className="space-y-3.5 text-left">
               <div>
                 <label className="text-[10px] font-bold text-indigo-200 block mb-1">আপনার নাম</label>
                 <input type="text" placeholder="যেমন: Md. Rahim" value={inputName} onChange={(e) => setInputName(e.target.value)} className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs font-bold text-white focus:outline-none focus:border-indigo-400 shadow-inner" />
@@ -326,7 +361,6 @@ export default function UserApp() {
 
   return (
     <div className="min-h-screen bg-[#0d0b21] text-slate-100 flex flex-col font-sans text-xs relative">
-      {/* ফোর্স আপডেট স্ক্রিন (যদি চালু থাকে) */}
       {forceUpdate.enabled && (
         <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4">
           <div className="bg-[#18133a] border border-indigo-500/40 rounded-3xl p-6 max-w-xs w-full text-center space-y-4 shadow-2xl text-white">
@@ -344,22 +378,32 @@ export default function UserApp() {
         </div>
       )}
 
+      {/* হেডার: আইকনগুলো শুধুমাত্র হোমপেজে (menu) শো করবে */}
       <header className="bg-[#141032]/80 backdrop-blur-xl border-b border-white/10 px-4 py-3.5 flex items-center justify-between sticky top-0 z-20 shadow-lg">
         <div className="flex items-center gap-3">
-          {activeSection !== 'menu' && <button onClick={() => setActiveSection('menu')} className="p-2 -ml-2 rounded-2xl bg-white/5 border border-white/10 text-white"><ArrowLeft className="w-4 h-4" /></button>}
+          {activeSection !== 'menu' ? (
+            <button onClick={() => setActiveSection('menu')} className="p-2 -ml-2 rounded-2xl bg-white/5 border border-white/10 text-white"><ArrowLeft className="w-4 h-4" /></button>
+          ) : (
+            <div className="w-10 h-10 rounded-2xl overflow-hidden bg-gradient-to-tr from-indigo-500 to-purple-500 border border-white/20 shadow-md flex items-center justify-center text-white font-black">
+              {userProfile.profilePic ? <img src={userProfile.profilePic} alt="Profile" className="w-full h-full object-cover" /> : userProfile.name.charAt(0)}
+            </div>
+          )}
           <div>
             <h2 className="text-xs font-black text-white">{userProfile.name}</h2>
             <p className="text-[10px] text-indigo-300 font-mono">{userProfile.phone}</p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <button onClick={handlePullToRefresh} className={`p-2 rounded-2xl bg-white/5 border border-white/10 text-indigo-400 ${isRefreshing ? 'animate-spin' : ''}`}><RefreshCw className="w-3.5 h-3.5" /></button>
-          <button onClick={() => setActiveSection('notifications')} className="p-2 rounded-2xl bg-white/5 border border-white/10 text-amber-400 relative">
-            <Bell className="w-3.5 h-3.5" />
-            {notifications.length > 0 && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full animate-ping" />}
-          </button>
-          <button onClick={() => setActiveSection('profile')} className="px-2.5 py-2 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 font-extrabold flex items-center gap-1"><UserIcon className="w-3.5 h-3.5" /></button>
-        </div>
+
+        {activeSection === 'menu' && (
+          <div className="flex items-center gap-1.5">
+            <button onClick={handlePullToRefresh} className={`p-2 rounded-2xl bg-white/5 border border-white/10 text-indigo-400 ${isRefreshing ? 'animate-spin' : ''}`}><RefreshCw className="w-3.5 h-3.5" /></button>
+            <button onClick={() => setActiveSection('notifications')} className="p-2 rounded-2xl bg-white/5 border border-white/10 text-amber-400 relative">
+              <Bell className="w-3.5 h-3.5" />
+              {notifications.length > 0 && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full animate-ping" />}
+            </button>
+            <button onClick={() => setActiveSection('profile')} className="p-2 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 font-extrabold flex items-center gap-1"><UserIcon className="w-3.5 h-3.5" /></button>
+          </div>
+        )}
       </header>
 
       <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-500 text-white px-4 py-2 text-[11px] font-bold shadow-md flex items-center gap-2">
@@ -367,24 +411,26 @@ export default function UserApp() {
         <marquee className="font-medium">{runningNotice}</marquee>
       </div>
 
-      <main className="flex-1 p-4 max-w-lg mx-auto w-full overflow-y-auto space-y-4">
+      <main className="flex-1 p-4 max-w-lg mx-auto w-full overflow-y-auto space-y-4 pb-12">
         {activeSection === 'menu' && (
           <div className="space-y-4">
+            {/* একক ব্যালেন্স ও হাইড সিস্টেম */}
             <div className="bg-gradient-to-tr from-[#1a1442] via-[#241b5c] to-[#120e2e] border border-white/10 rounded-3xl p-5 text-white shadow-2xl space-y-3 relative overflow-hidden">
               <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-purple-500/20 rounded-full blur-3xl pointer-events-none" />
               <div className="flex justify-between items-center relative z-10">
                 <span className="text-[10px] font-bold text-purple-300 uppercase tracking-widest bg-white/10 px-3 py-1 rounded-xl border border-white/10 shadow-inner">RETAILER ACCOUNT</span>
                 <span className="text-xs text-emerald-400 font-bold flex items-center gap-1"><span className="w-2 h-2 bg-emerald-400 rounded-full animate-ping" /> Active</span>
               </div>
-              <div className="grid grid-cols-2 gap-3 pt-1 relative z-10">
-                <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-2xl p-3.5 shadow-inner">
-                  <span className="text-[10px] text-slate-400 block mb-0.5">মেইন ব্যালেন্স</span>
-                  <h3 className="text-xl font-black font-mono text-white">৳{userProfile.mainBalance}</h3>
+              <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-2xl p-4 flex items-center justify-between relative z-10 shadow-inner">
+                <div>
+                  <span className="text-[10px] text-slate-400 block mb-1">টোটাল ব্যালেন্স</span>
+                  <h3 className="text-2xl font-black font-mono text-white">
+                    {showBalance ? `৳${userProfile.balance}` : '৳••••••'}
+                  </h3>
                 </div>
-                <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-2xl p-3.5 shadow-inner">
-                  <span className="text-[10px] text-slate-400 block mb-0.5">ড্রাইভ ব্যালেন্স</span>
-                  <h3 className="text-xl font-black font-mono text-amber-400">৳{userProfile.driveBalance}</h3>
-                </div>
+                <button onClick={() => setShowBalance(!showBalance)} className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-indigo-400 active:scale-95 shadow">
+                  {showBalance ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 
@@ -399,7 +445,51 @@ export default function UserApp() {
           </div>
         )}
 
-        {/* এড ব্যালেন্স (নোট, কপি, হোল্ড কনফার্ম) */}
+        {/* প্রোফাইল অপশন (ছবি, পিন পরিবর্তন ও ডিটেইলস) */}
+        {activeSection === 'profile' && (
+          <div className="space-y-4">
+            <div className="bg-[#141032] border border-white/10 rounded-3xl p-5 text-center space-y-3 shadow-xl">
+              <div className="w-20 h-20 rounded-full overflow-hidden bg-gradient-to-tr from-indigo-500 to-purple-500 border-2 border-indigo-400 mx-auto shadow-xl flex items-center justify-center text-white font-black text-2xl">
+                {userProfile.profilePic ? <img src={userProfile.profilePic} alt="Profile" className="w-full h-full object-cover" /> : userProfile.name.charAt(0)}
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-white">{userProfile.name}</h3>
+                <p className="text-xs text-indigo-300 font-mono mt-1">📱 {userProfile.phone}</p>
+                <p className="text-xs text-emerald-400 font-mono font-bold mt-1">💰 ব্যালেন্স: ৳{userProfile.balance}</p>
+                
+                <div className="flex items-center justify-center gap-1.5 mt-2">
+                  <span className="text-xs text-indigo-300 font-mono">🔒 পিন: {showPin ? userProfile.pin : '••••'}</span>
+                  <button onClick={() => setShowPin(!showPin)} className="text-indigo-400 p-1">
+                    {showPin ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* প্রফাইল পিকচার আপডেট */}
+            <div className="bg-[#141032] border border-white/10 rounded-3xl p-4 space-y-3 shadow-xl">
+              <h4 className="font-bold text-white border-b border-white/10 pb-2 flex items-center gap-1.5"><Camera className="w-4 h-4 text-pink-400" /> প্রফাইল ছবি পরিবর্তন করুন</h4>
+              <input type="text" placeholder="ছবির লিংক (Image URL)" value={newPicInput} onChange={(e) => setNewPicInput(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-indigo-500" />
+              <button onClick={handleUpdateProfilePic} className="w-full py-3 bg-gradient-to-r from-pink-600 to-purple-600 text-white font-bold rounded-xl shadow-lg active:scale-95">ছবি আপডেট করুন</button>
+            </div>
+
+            {/* পিন পরিবর্তন মডিউল */}
+            <div className="bg-[#141032] border border-white/10 rounded-3xl p-4 space-y-3 shadow-xl">
+              <h4 className="font-bold text-white border-b border-white/10 pb-2 flex items-center gap-1.5"><Key className="w-4 h-4 text-indigo-400" /> পিন পরিবর্তন ও মডিফাই করুন</h4>
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 block mb-1">পুরনো পিন</label>
+                <input type="password" maxLength={6} placeholder="••••" value={oldPinInput} onChange={(e) => setOldPinInput(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 font-mono font-bold text-white focus:outline-none focus:border-indigo-500" />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 block mb-1">নতুন পিন</label>
+                <input type="password" maxLength={6} placeholder="নতুন পিন দিন" value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 font-mono font-bold text-white focus:outline-none focus:border-indigo-500" />
+              </div>
+              <button onClick={handleUpdatePin} className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-xl shadow-lg active:scale-95">পিন আপডেট করুন</button>
+            </div>
+          </div>
+        )}
+
+        {/* এড ব্যালেন্স পেজ */}
         {activeSection === 'add_balance' && (
           <div className="space-y-3.5">
             {!addMoneyEnabled && <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-3 text-rose-300 font-bold text-center">⚠️ বর্তমানে Add Balance সার্ভিস বন্ধ রয়েছে।</div>}
@@ -458,7 +548,7 @@ export default function UserApp() {
           </div>
         )}
 
-        {/* ফ্লেক্সিলোড (অপারেটর ডিটেক্ট, সিম টাইপ, হোল্ড কনফার্ম) */}
+        {/* ফ্লেক্সিলোড */}
         {activeSection === 'flexiload' && (
           <div className="bg-[#141032] border border-white/10 rounded-3xl p-4 space-y-4 shadow-xl text-white">
             <h4 className="font-bold border-b border-white/10 pb-2 flex items-center justify-between">
@@ -641,31 +731,7 @@ export default function UserApp() {
           </div>
         )}
 
-        {/* প্রোফাইল */}
-        {activeSection === 'profile' && (
-          <div className="space-y-4">
-            <div className="bg-[#141032] border border-white/10 rounded-3xl p-5 text-center space-y-3 shadow-xl">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 text-white flex items-center justify-center font-black text-2xl mx-auto shadow-lg">{userProfile.name.charAt(0)}</div>
-              <div>
-                <h3 className="text-sm font-black text-white">{userProfile.name}</h3>
-                <p className="text-xs text-slate-400 font-mono mt-1">📱 {userProfile.phone}</p>
-                <div className="flex items-center justify-center gap-1.5 mt-2">
-                  <span className="text-xs text-indigo-300 font-mono">🔒 পিন: {showPin ? userProfile.pin : '••••'}</span>
-                  <button onClick={() => setShowPin(!showPin)} className="text-indigo-400 p-1">{showPin ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}</button>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-[#141032] border border-white/10 rounded-3xl p-4 space-y-3 shadow-xl">
-              <h4 className="font-bold text-white border-b border-white/10 pb-2 flex items-center gap-1.5"><Key className="w-4 h-4 text-indigo-400" /> পিন পরিবর্তন করুন</h4>
-              <input type="password" maxLength={6} placeholder="পুরনো পিন" value={oldPinInput} onChange={(e) => setOldPinInput(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 font-mono font-bold text-white focus:outline-none focus:border-indigo-500" />
-              <input type="password" maxLength={6} placeholder="নতুন পিন" value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 font-mono font-bold text-white focus:outline-none focus:border-indigo-500" />
-              <button onClick={handleUpdatePin} className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-xl shadow-lg active:scale-95 transition-all">পিন আপডেট করুন</button>
-            </div>
-          </div>
-        )}
-
-        {/* হিস্ট্রি */}
+        {/* হিস্ট্রি (রিচার্জ হিস্ট্রি ফিক্সড ও টাইম স্ট্যাম্প) */}
         {activeSection === 'history' && (
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-1 bg-[#141032] border border-white/10 p-1.5 rounded-2xl shadow-inner">
@@ -681,7 +747,7 @@ export default function UserApp() {
                   <div key={log.id} className="bg-[#141032] border border-white/10 rounded-2xl p-4 flex justify-between items-center shadow-lg text-white">
                     <div>
                       <p className="font-bold text-sm">৳{log.amount} <span className="text-emerald-400 text-[10px]">({log.method})</span></p>
-                      <p className="text-[10px] text-slate-400 mt-1">TrxID: <span className="font-mono text-indigo-300">{log.trxId}</span></p>
+                      <p className="text-[10px] text-slate-400 mt-1 font-mono">TrxID: {log.trxId} | {log.time}</p>
                     </div>
                     <span className={`text-[10px] font-bold px-2.5 py-1 rounded-xl border ${log.status === 'Approved' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : log.status === 'Cancelled' ? 'bg-rose-500/10 text-rose-400 border-rose-500/30' : 'bg-amber-500/10 text-amber-400 border-amber-500/30'}`}>{log.status}</span>
                   </div>
@@ -689,14 +755,14 @@ export default function UserApp() {
               </div>
             )}
 
-            {historyTab === 'recharge' && (
+            {historyTab === 'flexiload' && (
               <div className="space-y-3">
-                {userFlexiLogs.length === 0 && <div className="text-center text-slate-500 py-4">কোনো ডাটা নেই</div>}
+                {userFlexiLogs.length === 0 && <div className="text-center text-slate-500 py-4">কোনো রিচার্জ হিস্ট্রি নেই</div>}
                 {userFlexiLogs.map(ord => (
                   <div key={ord.id} className="bg-[#141032] border border-white/10 rounded-2xl p-4 flex justify-between items-center shadow-lg text-white">
                     <div>
                       <p className="font-bold text-sm">{ord.operator} - ৳{ord.amount}</p>
-                      <p className="text-[10px] text-slate-400 mt-1 font-mono">{ord.targetNumber}</p>
+                      <p className="text-[10px] text-slate-400 mt-1 font-mono">{ord.targetNumber} | {ord.time}</p>
                     </div>
                     <span className={`text-[10px] font-bold px-2.5 py-1 rounded-xl border ${ord.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : ord.status === 'Cancelled' ? 'bg-rose-500/10 text-rose-400 border-rose-500/30' : 'bg-amber-500/10 text-amber-400 border-amber-500/30'}`}>{ord.status}</span>
                   </div>
@@ -706,12 +772,12 @@ export default function UserApp() {
 
             {historyTab === 'drive' && (
               <div className="space-y-3">
-                {userDriveLogs.length === 0 && <div className="text-center text-slate-500 py-4">কোনো ডাটা নেই</div>}
+                {userDriveLogs.length === 0 && <div className="text-center text-slate-500 py-4">কোনো ড্রাইভ হিস্ট্রি নেই</div>}
                 {userDriveLogs.map(ord => (
                   <div key={ord.id} className="bg-[#141032] border border-white/10 rounded-2xl p-4 flex justify-between items-center shadow-lg text-white">
                     <div>
                       <p className="font-bold text-sm">{ord.operator} - ৳{ord.price}</p>
-                      <p className="text-[10px] text-slate-400 mt-1 font-mono">{ord.targetNumber}</p>
+                      <p className="text-[10px] text-slate-400 mt-1 font-mono">{ord.targetNumber} | {ord.time}</p>
                     </div>
                     <span className={`text-[10px] font-bold px-2.5 py-1 rounded-xl border ${ord.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : ord.status === 'Cancelled' ? 'bg-rose-500/10 text-rose-400 border-rose-500/30' : 'bg-amber-500/10 text-amber-400 border-amber-500/30'}`}>{ord.status}</span>
                   </div>
@@ -721,31 +787,41 @@ export default function UserApp() {
           </div>
         )}
 
-        {/* লাইভ চ্যাট */}
+        {/* লাইভ চ্যাট (নম্বর ভেরিফিকেশনসহ) */}
         {activeSection === 'chats' && (
           <div className="bg-[#141032] border border-white/10 rounded-3xl p-4 h-[420px] flex flex-col shadow-xl text-white">
-            <div className="border-b border-white/10 pb-2 mb-2 flex items-center justify-between">
-              <span className="font-bold">অ্যাডমিনের সাথে লাইভ চ্যাট</span>
-              <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" />
-            </div>
-            <div className="flex-1 overflow-y-auto space-y-3 pr-1 py-2">
-              {chatMessages.map((msg, i) => (
-                <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-xs shadow-lg ${msg.sender === 'user' ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-br-none' : 'bg-white/10 border border-white/5 text-slate-200 rounded-bl-none'}`}>
-                    {msg.text}
-                  </div>
+            {!chatVerified ? (
+              <div className="flex-1 flex flex-col items-center justify-center space-y-3 text-center">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center"><Phone className="w-6 h-6" /></div>
+                <h4 className="font-black text-sm">চ্যাট করতে আপনার ফোন নম্বর দিন</h4>
+                <input type="tel" maxLength={11} placeholder="017XXXXXXXX" value={chatPhoneInput} onChange={(e) => setChatPhoneInput(e.target.value)} className="w-full max-w-xs bg-black/40 border border-white/10 rounded-xl p-3 text-center font-mono font-bold text-white focus:outline-none focus:border-indigo-500" />
+                <button onClick={() => { if (chatPhoneInput.length >= 11) setChatVerified(true); else alert('সঠিক ১১ ডিজিট নম্বর দিন!'); }} className="w-full max-w-xs py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg active:scale-95">চ্যাট শুরু করুন</button>
+              </div>
+            ) : (
+              <>
+                <div className="border-b border-white/10 pb-2 mb-2 flex items-center justify-between">
+                  <span className="font-bold">অ্যাডমিনের সাথে লাইভ চ্যাট ({chatPhoneInput})</span>
+                  <button onClick={() => setChatVerified(false)} className="text-[10px] text-rose-400 underline">নম্বর বদল</button>
                 </div>
-              ))}
-            </div>
-            <div className="flex gap-2 pt-3 border-t border-white/10 mt-2">
-              <input type="text" placeholder="মেসেজ লিখুন..." value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendChatMessage()} className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-indigo-500" />
-              <button onClick={handleSendChatMessage} className="p-3 bg-indigo-600 text-white rounded-xl shadow-lg active:scale-95"><Send className="w-4 h-4" /></button>
-            </div>
+                <div className="flex-1 overflow-y-auto space-y-3 pr-1 py-2">
+                  {chatMessages.map((msg, i) => (
+                    <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-xs shadow-lg ${msg.sender === 'user' ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-br-none' : 'bg-white/10 border border-white/5 text-slate-200 rounded-bl-none'}`}>
+                        {msg.text}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2 pt-3 border-t border-white/10 mt-2">
+                  <input type="text" placeholder="মেসেজ লিখুন..." value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendChatMessage()} className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-indigo-500" />
+                  <button onClick={handleSendChatMessage} className="p-3 bg-indigo-600 text-white rounded-xl shadow-lg active:scale-95"><Send className="w-4 h-4" /></button>
+                </div>
+              </>
+            )}
           </div>
         )}
       </main>
 
-      {/* পপআপ অ্যালার্ট */}
       {popupAlert && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-[#18133a] border border-white/15 rounded-3xl p-6 max-w-xs w-full text-center space-y-4 shadow-2xl text-white">
