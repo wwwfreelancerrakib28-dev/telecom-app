@@ -6,7 +6,7 @@ import {
   Send, Flame, Wallet, History, MessageSquare, Bell, LogOut, ArrowLeft, 
   Ticket, Copy, Check, XCircle, User as UserIcon, Facebook, MessageCircle, 
   Eye, EyeOff, Lock, ShoppingCart, AlertCircle, Clock, Key, HelpCircle, 
-  Sparkles, RefreshCw, Zap, Info, FileText, Download, Camera, Phone
+  Sparkles, RefreshCw, Zap, Info, FileText, Download, Camera, Phone, MapPin
 } from 'lucide-react';
 
 export default function UserApp() {
@@ -16,13 +16,16 @@ export default function UserApp() {
   const [inputPhone, setInputPhone] = useState('');
   const [inputPin, setInputPin] = useState('');
   const [inputName, setInputName] = useState('');
+  const [inputPic, setInputPic] = useState('');
+  const [inputDivision, setInputDivision] = useState('');
+  const [inputDistrict, setInputDistrict] = useState('');
 
   const [forceUpdate, setForceUpdate] = useState({ enabled: false, link: '#' });
   const [activeSection, setActiveSection] = useState<'menu' | 'flexiload' | 'drive' | 'scratch' | 'add_balance' | 'history' | 'chats' | 'notifications' | 'profile' | 'support'>('menu');
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   const [userProfile, setUserProfile] = useState({
-    id: '1', name: 'Md. Tanvir Hasan', phone: '01712345678', pin: '1234', balance: 4770, profilePic: ''
+    id: '1', name: 'Md. Tanvir Hasan', phone: '01712345678', pin: '1234', balance: 4770, profilePic: '', division: 'ঢাকা', district: 'ঢাকা'
   });
 
   const [showBalance, setShowBalance] = useState(false);
@@ -74,11 +77,19 @@ export default function UserApp() {
 
   const [historyTab, setHistoryTab] = useState<'add_money' | 'flexiload' | 'drive'>('add_money');
   
-  // লাইভ চ্যাট ভেরিফিকেশন স্টেট
   const [chatVerified, setChatVerified] = useState(false);
   const [chatPhoneInput, setChatPhoneInput] = useState('');
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState('');
+
+  // লোকাল স্টোরেজ থেকে লগইন স্টেট চেক করা
+  useEffect(() => {
+    const savedUser = localStorage.getItem('sim_offer_user');
+    if (savedUser) {
+      setUserProfile(JSON.parse(savedUser));
+      setIsLoggedIn(true);
+    }
+  }, []);
 
   useEffect(() => {
     onValue(ref(db, 'settings/notice'), (snapshot) => { if (snapshot.val()) setRunningNotice(snapshot.val()); });
@@ -139,6 +150,39 @@ export default function UserApp() {
       else setChatMessages([]);
     });
   }, [userProfile.phone, chatPhoneInput]);
+
+  const handleLoginSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputPhone || inputPhone.length < 11 || !inputPin) {
+      return alert('সঠিক মোবাইল নম্বর এবং পিন দিন!');
+    }
+    const loggedUser = {
+      id: '1', name: 'Md. Tanvir Hasan', phone: inputPhone, pin: inputPin, balance: 1500, profilePic: '', division: 'ঢাকা', district: 'ঢাকা'
+    };
+    setUserProfile(loggedUser);
+    localStorage.setItem('sim_offer_user', JSON.stringify(loggedUser));
+    setIsLoggedIn(true);
+  };
+
+  const handleRegisterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputName || !inputPhone || inputPhone.length < 11 || !inputPin || !inputPic || !inputDivision || !inputDistrict) {
+      return alert('⚠️ দয়া করে নাম, নম্বর, পিন, প্রফাইল ছবি, বিভাগ এবং জেলা—সবগুলো ঘর অবশ্যই পূরণ করুন!');
+    }
+    const newUser = {
+      id: Date.now().toString(), name: inputName, phone: inputPhone, pin: inputPin, balance: 500, profilePic: inputPic, division: inputDivision, district: inputDistrict
+    };
+    setUserProfile(newUser);
+    localStorage.setItem('sim_offer_user', JSON.stringify(newUser));
+    push(ref(db, 'users'), newUser);
+    setIsLoggedIn(true);
+    alert('🎉 অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে!');
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('sim_offer_user');
+    setIsLoggedIn(false);
+  };
 
   const handleCopyPaymentNum = (num: string) => {
     navigator.clipboard.writeText(num);
@@ -310,48 +354,68 @@ export default function UserApp() {
 
   const visibleOffers = driveOffers.filter(o => o.operator === selectedDriveOp);
 
+  // রোমান্টিক ও প্রিমিয়াম লগইন/রেজিস্ট্রেশন পেজ
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen bg-[#0f0c29] bg-gradient-to-tr from-[#0f0c29] via-[#302b63] to-[#24243e] flex items-center justify-center p-4 font-sans text-xs text-white">
-        <div className="w-full max-w-sm bg-white/10 backdrop-blur-2xl border border-white/15 rounded-3xl p-6 shadow-2xl text-center space-y-5">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 text-white flex items-center justify-center mx-auto shadow-lg shadow-indigo-500/40">
-            <Sparkles className="w-8 h-8 animate-pulse" />
+      <div className="min-h-screen bg-[#0f0c29] bg-gradient-to-tr from-[#140b2b] via-[#2d124f] to-[#0f0c29] flex items-center justify-center p-4 font-sans text-xs text-white select-none">
+        <div className="w-full max-w-sm bg-white/10 backdrop-blur-2xl border border-white/20 rounded-3xl p-6 shadow-2xl text-center space-y-5 relative overflow-hidden">
+          <div className="absolute -top-10 -right-10 w-32 h-32 bg-pink-500/20 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl pointer-events-none" />
+          
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-pink-500 via-purple-600 to-indigo-600 text-white flex items-center justify-center mx-auto shadow-xl shadow-pink-500/30">
+            <Sparkles className="w-8 h-8 animate-pulse text-white" />
           </div>
           <div>
-            <h2 className="text-base font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-purple-300 to-pink-300">SIM OFFER SHOP</h2>
-            <p className="text-[11px] text-slate-300 mt-1">প্রিমিয়াম টেলিযোগাযোগ সেবা</p>
+            <h2 className="text-base font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-pink-300 via-purple-200 to-indigo-300">SIM OFFER SHOP</h2>
+            <p className="text-[11px] text-pink-200/70 mt-1">এক্সক্লুসিভ টেলিযোগাযোগ সেবা</p>
           </div>
-          <div className="grid grid-cols-2 gap-1.5 bg-black/30 p-1 rounded-2xl border border-white/10">
-            <button onClick={() => setAuthView('login')} className={`py-2.5 rounded-xl font-bold transition-all ${authView === 'login' ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg' : 'text-slate-400'}`}>লগইন</button>
-            <button onClick={() => setAuthView('register')} className={`py-2.5 rounded-xl font-bold transition-all ${authView === 'register' ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg' : 'text-slate-400'}`}>একাউন্ট তৈরি</button>
+
+          <div className="grid grid-cols-2 gap-1.5 bg-black/40 p-1 rounded-2xl border border-white/10">
+            <button onClick={() => setAuthView('login')} className={`py-2.5 rounded-xl font-bold transition-all ${authView === 'login' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400'}`}>লগইন</button>
+            <button onClick={() => setAuthView('register')} className={`py-2.5 rounded-xl font-bold transition-all ${authView === 'register' ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg' : 'text-slate-400'}`}>একাউন্ট তৈরি</button>
           </div>
+
           {authView === 'login' ? (
-            <form onSubmit={(e) => { e.preventDefault(); if (inputPhone && inputPin) { setUserProfile(prev => ({ ...prev, phone: inputPhone, pin: inputPin })); setIsLoggedIn(true); } }} className="space-y-3.5 text-left">
+            <form onSubmit={handleLoginSubmit} className="space-y-3.5 text-left">
               <div>
-                <label className="text-[10px] font-bold text-indigo-200 block mb-1">মোবাইল নম্বর</label>
-                <input type="tel" maxLength={11} placeholder="017XXXXXXXX" value={inputPhone} onChange={(e) => setInputPhone(e.target.value)} className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs font-mono font-bold text-white focus:outline-none focus:border-indigo-400 shadow-inner" />
+                <label className="text-[10px] font-bold text-pink-200 block mb-1">মোবাইল নম্বর</label>
+                <input type="tel" inputMode="numeric" maxLength={11} placeholder="017XXXXXXXX" value={inputPhone} onChange={(e) => setInputPhone(e.target.value)} className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs font-mono font-bold text-white focus:outline-none focus:border-pink-400 shadow-inner" />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-indigo-200 block mb-1">সিক্রেট পিন (PIN)</label>
-                <input type="password" maxLength={6} placeholder="••••" value={inputPin} onChange={(e) => setInputPin(e.target.value)} className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs font-mono font-bold tracking-widest text-white focus:outline-none focus:border-indigo-400 shadow-inner" />
+                <label className="text-[10px] font-bold text-pink-200 block mb-1">সিক্রেট পিন (শুধু সংখ্যা)</label>
+                <input type="password" inputMode="numeric" maxLength={6} placeholder="••••" value={inputPin} onChange={(e) => setInputPin(e.target.value)} className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs font-mono font-bold tracking-widest text-white focus:outline-none focus:border-pink-400 shadow-inner" />
               </div>
-              <button type="submit" className="w-full py-3.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:opacity-90 text-white font-black text-xs rounded-xl shadow-xl shadow-indigo-600/30 transition-all active:scale-95">লগইন করুন</button>
+              <button type="submit" className="w-full py-3.5 bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 hover:opacity-90 text-white font-black text-xs rounded-xl shadow-xl shadow-pink-600/30 transition-all active:scale-95">লগইন করুন</button>
             </form>
           ) : (
-            <form onSubmit={(e) => { e.preventDefault(); if (inputName && inputPhone && inputPin) { setUserProfile(prev => ({ ...prev, name: inputName, phone: inputPhone, pin: inputPin })); setIsLoggedIn(true); } }} className="space-y-3.5 text-left">
+            <form onSubmit={handleRegisterSubmit} className="space-y-3 text-left max-h-[320px] overflow-y-auto pr-1">
               <div>
-                <label className="text-[10px] font-bold text-indigo-200 block mb-1">আপনার নাম</label>
-                <input type="text" placeholder="যেমন: Md. Rahim" value={inputName} onChange={(e) => setInputName(e.target.value)} className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs font-bold text-white focus:outline-none focus:border-indigo-400 shadow-inner" />
+                <label className="text-[10px] font-bold text-pink-200 block mb-0.5">আপনার নাম *</label>
+                <input type="text" placeholder="যেমন: Md. Rahim" value={inputName} onChange={(e) => setInputName(e.target.value)} className="w-full bg-black/40 border border-white/15 rounded-xl p-2.5 text-xs font-bold text-white focus:outline-none focus:border-pink-400" />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-indigo-200 block mb-1">মোবাইল নম্বর</label>
-                <input type="tel" maxLength={11} placeholder="017XXXXXXXX" value={inputPhone} onChange={(e) => setInputPhone(e.target.value)} className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs font-mono font-bold text-white focus:outline-none focus:border-indigo-400 shadow-inner" />
+                <label className="text-[10px] font-bold text-pink-200 block mb-0.5">মোবাইল নম্বর *</label>
+                <input type="tel" inputMode="numeric" maxLength={11} placeholder="017XXXXXXXX" value={inputPhone} onChange={(e) => setInputPhone(e.target.value)} className="w-full bg-black/40 border border-white/15 rounded-xl p-2.5 text-xs font-mono font-bold text-white focus:outline-none focus:border-pink-400" />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-indigo-200 block mb-1">নতুন পিন (PIN)</label>
-                <input type="password" maxLength={6} placeholder="৪ বা ৬ ডিজিট" value={inputPin} onChange={(e) => setInputPin(e.target.value)} className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs font-mono font-bold tracking-widest text-white focus:outline-none focus:border-indigo-400 shadow-inner" />
+                <label className="text-[10px] font-bold text-pink-200 block mb-0.5">সিক্রেট পিন (শুধু সংখ্যা) *</label>
+                <input type="password" inputMode="numeric" maxLength={6} placeholder="৪ বা ৬ ডিজিট পিন" value={inputPin} onChange={(e) => setInputPin(e.target.value)} className="w-full bg-black/40 border border-white/15 rounded-xl p-2.5 text-xs font-mono font-bold tracking-widest text-white focus:outline-none focus:border-pink-400" />
               </div>
-              <button type="submit" className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:opacity-90 text-white font-black text-xs rounded-xl shadow-xl shadow-emerald-600/30 transition-all active:scale-95">একাউন্ট তৈরি করুন</button>
+              <div>
+                <label className="text-[10px] font-bold text-pink-200 block mb-0.5">প্রফাইল ছবি (URL) *</label>
+                <input type="text" placeholder="ছবির লিংক দিন" value={inputPic} onChange={(e) => setInputPic(e.target.value)} className="w-full bg-black/40 border border-white/15 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-pink-400" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] font-bold text-pink-200 block mb-0.5">বিভাগ *</label>
+                  <input type="text" placeholder="যেমন: ঢাকা" value={inputDivision} onChange={(e) => setInputDivision(e.target.value)} className="w-full bg-black/40 border border-white/15 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-pink-400" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-pink-200 block mb-0.5">জেলা *</label>
+                  <input type="text" placeholder="যেমন: গাজীপুর" value={inputDistrict} onChange={(e) => setInputDistrict(e.target.value)} className="w-full bg-black/40 border border-white/15 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-pink-400" />
+                </div>
+              </div>
+              <button type="submit" className="w-full py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white font-black text-xs rounded-xl shadow-xl shadow-pink-600/30 transition-all active:scale-95 mt-2">একাউন্ট তৈরি করুন</button>
             </form>
           )}
         </div>
@@ -402,6 +466,7 @@ export default function UserApp() {
               {notifications.length > 0 && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full animate-ping" />}
             </button>
             <button onClick={() => setActiveSection('profile')} className="p-2 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 font-extrabold flex items-center gap-1"><UserIcon className="w-3.5 h-3.5" /></button>
+            <button onClick={handleLogout} className="p-2 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400" title="লগআউট"><LogOut className="w-3.5 h-3.5" /></button>
           </div>
         )}
       </header>
@@ -411,10 +476,10 @@ export default function UserApp() {
         <marquee className="font-medium">{runningNotice}</marquee>
       </div>
 
-      <main className="flex-1 p-4 max-w-lg mx-auto w-full overflow-y-auto space-y-4 pb-12">
+      <main className="flex-1 p-4 max-w-lg mx-auto w-full overflow-y-auto space-y-4">
         {activeSection === 'menu' && (
           <div className="space-y-4">
-            {/* একক ব্যালেন্স ও হাইড সিস্টেম */}
+            {/* একক হাইডেবল ব্যালেন্স */}
             <div className="bg-gradient-to-tr from-[#1a1442] via-[#241b5c] to-[#120e2e] border border-white/10 rounded-3xl p-5 text-white shadow-2xl space-y-3 relative overflow-hidden">
               <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-purple-500/20 rounded-full blur-3xl pointer-events-none" />
               <div className="flex justify-between items-center relative z-10">
@@ -445,7 +510,7 @@ export default function UserApp() {
           </div>
         )}
 
-        {/* প্রোফাইল অপশন (ছবি, পিন পরিবর্তন ও ডিটেইলস) */}
+        {/* প্রফাইল ডিটেইলস, ছবি ও পিন মডিফাই */}
         {activeSection === 'profile' && (
           <div className="space-y-4">
             <div className="bg-[#141032] border border-white/10 rounded-3xl p-5 text-center space-y-3 shadow-xl">
@@ -456,6 +521,7 @@ export default function UserApp() {
                 <h3 className="text-sm font-black text-white">{userProfile.name}</h3>
                 <p className="text-xs text-indigo-300 font-mono mt-1">📱 {userProfile.phone}</p>
                 <p className="text-xs text-emerald-400 font-mono font-bold mt-1">💰 ব্যালেন্স: ৳{userProfile.balance}</p>
+                <p className="text-[11px] text-slate-400 mt-0.5"><MapPin className="w-3 h-3 inline text-pink-400" /> {userProfile.district}, {userProfile.division}</p>
                 
                 <div className="flex items-center justify-center gap-1.5 mt-2">
                   <span className="text-xs text-indigo-300 font-mono">🔒 পিন: {showPin ? userProfile.pin : '••••'}</span>
@@ -466,7 +532,7 @@ export default function UserApp() {
               </div>
             </div>
 
-            {/* প্রফাইল পিকচার আপডেট */}
+            {/* প্রফাইল ছবি আপডেট */}
             <div className="bg-[#141032] border border-white/10 rounded-3xl p-4 space-y-3 shadow-xl">
               <h4 className="font-bold text-white border-b border-white/10 pb-2 flex items-center gap-1.5"><Camera className="w-4 h-4 text-pink-400" /> প্রফাইল ছবি পরিবর্তন করুন</h4>
               <input type="text" placeholder="ছবির লিংক (Image URL)" value={newPicInput} onChange={(e) => setNewPicInput(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-indigo-500" />
@@ -478,11 +544,11 @@ export default function UserApp() {
               <h4 className="font-bold text-white border-b border-white/10 pb-2 flex items-center gap-1.5"><Key className="w-4 h-4 text-indigo-400" /> পিন পরিবর্তন ও মডিফাই করুন</h4>
               <div>
                 <label className="text-[10px] font-bold text-slate-400 block mb-1">পুরনো পিন</label>
-                <input type="password" maxLength={6} placeholder="••••" value={oldPinInput} onChange={(e) => setOldPinInput(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 font-mono font-bold text-white focus:outline-none focus:border-indigo-500" />
+                <input type="password" inputMode="numeric" maxLength={6} placeholder="••••" value={oldPinInput} onChange={(e) => setOldPinInput(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 font-mono font-bold text-white focus:outline-none focus:border-indigo-500" />
               </div>
               <div>
                 <label className="text-[10px] font-bold text-slate-400 block mb-1">নতুন পিন</label>
-                <input type="password" maxLength={6} placeholder="নতুন পিন দিন" value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 font-mono font-bold text-white focus:outline-none focus:border-indigo-500" />
+                <input type="password" inputMode="numeric" maxLength={6} placeholder="নতুন পিন দিন" value={newPinInput} onChange={(e) => setNewPinInput(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 font-mono font-bold text-white focus:outline-none focus:border-indigo-500" />
               </div>
               <button onClick={handleUpdatePin} className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-xl shadow-lg active:scale-95">পিন আপডেট করুন</button>
             </div>
@@ -558,7 +624,7 @@ export default function UserApp() {
             <div>
               <label className="text-[10px] font-bold text-slate-400 block mb-1">মোবাইল নম্বর (অপারেটর অটো ডিটেক্ট)</label>
               <div className="relative">
-                <input type="tel" maxLength={11} placeholder="017XXXXXXXX" value={flexiPhone} onChange={(e) => handlePhoneChange(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl pl-3 pr-24 py-3 font-bold font-mono text-white focus:outline-none focus:border-indigo-500" />
+                <input type="tel" inputMode="numeric" maxLength={11} placeholder="017XXXXXXXX" value={flexiPhone} onChange={(e) => handlePhoneChange(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl pl-3 pr-24 py-3 font-bold font-mono text-white focus:outline-none focus:border-indigo-500" />
                 <div className="absolute right-2 top-2 bg-indigo-600/30 border border-indigo-500/40 text-indigo-300 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase">
                   {flexiOperator === 'Grameenphone' ? 'GP' : flexiOperator === 'Banglalink' ? 'BL' : flexiOperator}
                 </div>
@@ -572,8 +638,8 @@ export default function UserApp() {
                 ))}
               </div>
             </div>
-            <input type="number" placeholder="টাকার পরিমাণ (৳)" value={flexiAmount} onChange={(e) => setFlexiAmount(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 font-bold text-white focus:outline-none focus:border-indigo-500" />
-            <input type="password" maxLength={6} placeholder="আপনার সিক্রেট পিন (PIN)" value={flexiPin} onChange={(e) => setFlexiPin(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 font-mono font-bold tracking-widest text-white focus:outline-none focus:border-indigo-500" />
+            <input type="number" inputMode="numeric" placeholder="টাকার পরিমাণ (৳)" value={flexiAmount} onChange={(e) => setFlexiAmount(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 font-bold text-white focus:outline-none focus:border-indigo-500" />
+            <input type="password" inputMode="numeric" maxLength={6} placeholder="আপনার সিক্রেট পিন (PIN)" value={flexiPin} onChange={(e) => setFlexiPin(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 font-mono font-bold tracking-widest text-white focus:outline-none focus:border-indigo-500" />
             
             <div className="pt-2">
               <p className="text-[10px] text-center text-amber-400 font-semibold mb-1.5">👇 রিচার্জ কনফার্ম করতে নিচের বাটনটি চেপে ধরে রাখুন</p>
@@ -643,7 +709,7 @@ export default function UserApp() {
                   <h4 className="text-xs font-black border-b border-white/10 pb-2">{orderingOffer.title} - ৳{orderingOffer.price}</h4>
                   <div>
                     <label className="text-[10px] font-bold text-slate-300 block mb-1">প্রাপক মোবাইল নম্বর</label>
-                    <input type="tel" maxLength={11} placeholder="01XXXXXXXXX" value={targetDriveNumber} onChange={(e) => setTargetDriveNumber(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs font-mono font-bold text-white focus:outline-none focus:border-indigo-500" />
+                    <input type="tel" inputMode="numeric" maxLength={11} placeholder="01XXXXXXXXX" value={targetDriveNumber} onChange={(e) => setTargetDriveNumber(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs font-mono font-bold text-white focus:outline-none focus:border-indigo-500" />
                   </div>
                   <div className="bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-2xl space-y-2">
                     <label className="text-[11px] font-extrabold text-amber-300 block">⚠️ এই নাম্বারে কি লোন আছে?</label>
@@ -690,7 +756,7 @@ export default function UserApp() {
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-slate-300 block mb-1">যে নম্বরে অফারটি নিতে চান (১১ ডিজিট)</label>
-                    <input type="tel" maxLength={11} placeholder="017XXXXXXXX" value={targetCardNumber} onChange={(e) => setTargetCardNumber(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs font-mono font-bold text-white focus:outline-none focus:border-indigo-500" />
+                    <input type="tel" inputMode="numeric" maxLength={11} placeholder="017XXXXXXXX" value={targetCardNumber} onChange={(e) => setTargetCardNumber(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs font-mono font-bold text-white focus:outline-none focus:border-indigo-500" />
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => setBuyingCard(null)} className="flex-1 py-3 bg-white/10 text-slate-300 rounded-xl font-bold">বাতিল</button>
@@ -731,7 +797,7 @@ export default function UserApp() {
           </div>
         )}
 
-        {/* হিস্ট্রি (রিচার্জ হিস্ট্রি ফিক্সড ও টাইম স্ট্যাম্প) */}
+        {/* হিস্ট্রি (রিচার্জ হিস্ট্রি সহ টাইম স্ট্যাম্প) */}
         {activeSection === 'history' && (
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-1 bg-[#141032] border border-white/10 p-1.5 rounded-2xl shadow-inner">
@@ -794,7 +860,7 @@ export default function UserApp() {
               <div className="flex-1 flex flex-col items-center justify-center space-y-3 text-center">
                 <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center"><Phone className="w-6 h-6" /></div>
                 <h4 className="font-black text-sm">চ্যাট করতে আপনার ফোন নম্বর দিন</h4>
-                <input type="tel" maxLength={11} placeholder="017XXXXXXXX" value={chatPhoneInput} onChange={(e) => setChatPhoneInput(e.target.value)} className="w-full max-w-xs bg-black/40 border border-white/10 rounded-xl p-3 text-center font-mono font-bold text-white focus:outline-none focus:border-indigo-500" />
+                <input type="tel" inputMode="numeric" maxLength={11} placeholder="017XXXXXXXX" value={chatPhoneInput} onChange={(e) => setChatPhoneInput(e.target.value)} className="w-full max-w-xs bg-black/40 border border-white/10 rounded-xl p-3 text-center font-mono font-bold text-white focus:outline-none focus:border-indigo-500" />
                 <button onClick={() => { if (chatPhoneInput.length >= 11) setChatVerified(true); else alert('সঠিক ১১ ডিজিট নম্বর দিন!'); }} className="w-full max-w-xs py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg active:scale-95">চ্যাট শুরু করুন</button>
               </div>
             ) : (
