@@ -85,11 +85,9 @@ export default function UserApp() {
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState('');
 
-  // পুল-টু-রিফ্রেশ টাচ হ্যান্ডলারের জন্য স্টেট
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
 
-  // ইন্টারনেট কানেকশন ট্র্যাক করা
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
@@ -179,17 +177,27 @@ export default function UserApp() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setInputPic(reader.result as string);
+        // ছবিকে ছোট সাইজে কম্প্রেস করে স্টোরেজ ফাস্ট করা
+        const img = new Image();
+        img.src = reader.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          canvas.width = 150;
+          canvas.height = 150;
+          ctx?.drawImage(img, 0, 0, 150, 150);
+          setInputPic(canvas.toDataURL('image/jpeg', 0.7));
+        };
       };
       reader.readAsDataURL(file);
     }
   };
 
-  // ১ সেকেন্ডের কম সময়ে সুপার ফাস্ট লগইন সিস্টেম (লোকাল ক্যাশ সহ)
+  // সুপার ফাস্ট ইনস্ট্যান্ট লগইন (১ সেকেন্ডের মধ্যে)
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!navigator.onLine) {
-      return alert('⚠️ ইন্টারনেট সংযোগ নেই! দয়া করে ইন্টারনেট চালু করুন।');
+      return alert('⚠️ ইন্টারনেট সংযোগ নেই!');
     }
     if (!inputPhone || inputPhone.length < 11 || !inputPin) {
       return alert('সঠিক মোবাইল নম্বর এবং পিন দিন!');
@@ -197,39 +205,12 @@ export default function UserApp() {
 
     setIsLoading(true);
     try {
-      const cachedUsers = localStorage.getItem('all_sim_users');
-      if (cachedUsers) {
-        const usersData = JSON.parse(cachedUsers);
-        let matchedUser: any = null;
-
-        Object.keys(usersData).forEach((key) => {
-          const user = usersData[key];
-          if (user.phone === inputPhone) {
-            matchedUser = { id: key, ...user };
-          }
-        });
-
-        if (matchedUser) {
-          if (matchedUser.pin !== inputPin) {
-            setIsLoading(false);
-            return alert('❌ ভুল পিন দেওয়া হয়েছে!');
-          }
-          setUserProfile(matchedUser);
-          setChatPhoneInput(matchedUser.phone);
-          localStorage.setItem('sim_offer_user', JSON.stringify(matchedUser));
-          setIsLoading(false);
-          setIsLoggedIn(true);
-          return;
-        }
-      }
-
       const dbRef = ref(db, 'users');
       const snapshot = await get(dbRef);
       
       setIsLoading(false);
       if (snapshot.exists()) {
         const usersData = snapshot.val();
-        localStorage.setItem('all_sim_users', JSON.stringify(usersData));
         let matchedUser: any = null;
 
         Object.keys(usersData).forEach((key) => {
@@ -261,11 +242,11 @@ export default function UserApp() {
     }
   };
 
-  // সুপার ফাস্ট অ্যাকাউন্ট তৈরি ও অটো-লগইন
+  // সুপার ফাস্ট অ্যাকাউন্ট তৈরি ও অটো লগইন
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!navigator.onLine) {
-      return alert('⚠️ ইন্টারনেট সংযোগ নেই! একাউন্ট তৈরি করতে ইন্টারনেট প্রয়োজন।');
+      return alert('⚠️ ইন্টারনেট সংযোগ নেই!');
     }
     if (!inputName || !inputPhone || inputPhone.length < 11 || !inputPin || !inputPic || !inputDivision || !inputDistrict) {
       return alert('⚠️ সব ঘরগুলো অবশ্যই পূরণ করুন!');
@@ -309,7 +290,7 @@ export default function UserApp() {
       setChatPhoneInput(createdUser.phone);
       localStorage.setItem('sim_offer_user', JSON.stringify(createdUser));
       setIsLoggedIn(true);
-      setPopupAlert('✅ অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে এবং স্বাগতম!');
+      setPopupAlert('✅ অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে!');
 
     } catch (error) {
       console.error(error);
@@ -318,7 +299,6 @@ export default function UserApp() {
     }
   };
 
-  // কনফার্মেশন সহ লগআউট হ্যান্ডলার
   const confirmLogout = () => {
     localStorage.removeItem('sim_offer_user');
     setIsLoggedIn(false);
@@ -407,7 +387,6 @@ export default function UserApp() {
     else if (val.startsWith('015')) setFlexiOperator('Teletalk');
   };
 
-  // প্রিমিয়াম পুল-টু-রিফ্রেশ হ্যান্ডলার
   const handleTouchStart = (e: React.TouchEvent) => {
     setTouchStart(e.targetTouches[0].clientY);
   };
@@ -417,13 +396,15 @@ export default function UserApp() {
   };
 
   const handleTouchEnd = () => {
-    if (touchStart && touchEnd && touchEnd - touchStart > 120 && window.scrollY === 0) {
+    if (window.scrollY === 0 && touchStart && touchEnd && touchEnd - touchStart > 100) {
       setIsRefreshing(true);
       setTimeout(() => {
         setIsRefreshing(false);
         setPopupAlert('✨ অ্যাপ ডাটা সফলভাবে রিফ্রেশ হয়েছে!');
       }, 1000);
     }
+    setTouchStart(0);
+    setTouchEnd(0);
   };
 
   const handleSendChatMessage = () => {
@@ -504,7 +485,6 @@ export default function UserApp() {
 
   const visibleOffers = driveOffers.filter(o => o.operator === selectedDriveOp);
 
-  // ইন্টারনেট না থাকলে অফলাইন স্ক্রিন
   if (!isOnline) {
     return (
       <div className="min-h-screen bg-[#0f0c29] flex flex-col items-center justify-center p-6 text-center text-white font-sans select-none">
@@ -528,7 +508,6 @@ export default function UserApp() {
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-[#0f0c29] bg-gradient-to-tr from-[#140b2b] via-[#2d124f] to-[#0f0c29] flex items-center justify-center p-4 font-sans text-xs text-white select-none relative">
-        {/* লগইন/রেজিস্ট্রেশন পেজের ওপরের কোণায় অ্যাডমিন সাপোর্ট লোগোসমূহ */}
         <div className="absolute top-4 right-4 flex items-center gap-2 z-30">
           <a href={adminSocialLinks.facebookPage || '#'} target="_blank" rel="noreferrer" className="w-9 h-9 rounded-2xl bg-blue-600/20 border border-blue-500/40 text-blue-400 flex items-center justify-center shadow-lg active:scale-95 transition-all">
             <Facebook className="w-4 h-4" />
@@ -623,12 +602,7 @@ export default function UserApp() {
   }
 
   return (
-    <div 
-      className="min-h-screen bg-[#0d0b21] text-slate-100 flex flex-col font-sans text-xs relative select-none"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
+    <div className="min-h-screen bg-[#0d0b21] text-slate-100 flex flex-col font-sans text-xs relative select-none">
       {isRefreshing && (
         <div className="absolute top-12 left-0 right-0 z-50 flex justify-center">
           <div className="bg-indigo-600 text-white px-4 py-1.5 rounded-full text-[10px] font-bold shadow-lg flex items-center gap-2 animate-bounce">
@@ -671,7 +645,6 @@ export default function UserApp() {
 
         {activeSection === 'menu' && (
           <div className="flex items-center gap-1.5">
-            {/* হোমপেজে সরাসরি অ্যাডমিন ফেসবুক ও হোয়াটসঅ্যাপ লোগো */}
             <a href={adminSocialLinks.facebookPage || '#'} target="_blank" rel="noreferrer" className="p-2 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-400" title="ফেসবুক পেজ">
               <Facebook className="w-3.5 h-3.5" />
             </a>
@@ -693,7 +666,12 @@ export default function UserApp() {
         <marquee className="font-medium">{runningNotice}</marquee>
       </div>
 
-      <main className="flex-1 p-4 max-w-lg mx-auto w-full overflow-y-auto space-y-4">
+      <main 
+        className="flex-1 p-4 max-w-lg mx-auto w-full overflow-y-auto space-y-4"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         {activeSection === 'menu' && (
           <div className="space-y-4">
             <div className="bg-gradient-to-tr from-[#1a1442] via-[#241b5c] to-[#120e2e] border border-white/10 rounded-3xl p-5 text-white shadow-2xl space-y-3 relative overflow-hidden">
@@ -1076,7 +1054,6 @@ export default function UserApp() {
         )}
       </main>
 
-      {/* লগআউট কনফার্মেশন পপআপ */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-[#18133a] border border-white/15 rounded-3xl p-6 max-w-xs w-full text-center space-y-4 shadow-2xl text-white">
