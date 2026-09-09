@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { db } from './firebase';
-import { ref, set, push, onValue, update, get, child } from 'firebase/database';
+import { ref, push, onValue, get } from 'firebase/database';
 import { 
   Send, Flame, Wallet, History, MessageSquare, Bell, LogOut, ArrowLeft, 
-  Ticket, Copy, Check, XCircle, User as UserIcon, Facebook, MessageCircle, 
-  Eye, EyeOff, Lock, ShoppingCart, AlertCircle, Clock, Key, HelpCircle, 
-  Sparkles, RefreshCw, Zap, Info, FileText, Download, Camera, Phone, MapPin
+  Ticket, Copy, Check, User as UserIcon, Facebook, MessageCircle, 
+  Eye, EyeOff, ShoppingCart, AlertCircle, Key, HelpCircle, 
+  Sparkles, RefreshCw, Zap, FileText, Download, MapPin, WifiOff
 } from 'lucide-react';
 
 export default function UserApp() {
@@ -24,13 +24,14 @@ export default function UserApp() {
   const [activeSection, setActiveSection] = useState<'menu' | 'flexiload' | 'drive' | 'scratch' | 'add_balance' | 'history' | 'chats' | 'notifications' | 'profile' | 'support'>('menu');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
   
   const [userProfile, setUserProfile] = useState({
     id: '', name: '', phone: '', pin: '', balance: 500, profilePic: '', division: '', district: ''
   });
 
   const [showBalance, setShowBalance] = useState(false);
-  const [adminSocialLinks, setAdminSocialLinks] = useState({ facebookPage: '', whatsappNumber: '' });
+  const [adminSocialLinks, setAdminSocialLinks] = useState({ facebookPage: '', whatsappNumber: '01728116153' });
   const [showPin, setShowPin] = useState(false);
   const [oldPinInput, setOldPinInput] = useState('');
   const [newPinInput, setNewPinInput] = useState('');
@@ -62,6 +63,7 @@ export default function UserApp() {
   const [popupAlert, setPopupAlert] = useState<string | null>(null);
   
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const [selectedDriveOp, setSelectedDriveOp] = useState('Grameenphone');
   const [driveOffers, setDriveOffers] = useState<any[]>([]);
@@ -79,10 +81,27 @@ export default function UserApp() {
 
   const [historyTab, setHistoryTab] = useState<'add_money' | 'flexiload' | 'drive'>('add_money');
   
-  const [chatVerified, setChatVerified] = useState(false);
   const [chatPhoneInput, setChatPhoneInput] = useState('');
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState('');
+
+  // পুল-টু-রিফ্রেশ টাচ হ্যান্ডলারের জন্য স্টেট
+  const [touchStart, setTouchStart] = useState(0);
+  const [touchEnd, setTouchEnd] = useState(0);
+
+  // ইন্টারনেট কানেকশন ট্র্যাক করা
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     const savedUser = localStorage.getItem('sim_offer_user');
@@ -90,7 +109,6 @@ export default function UserApp() {
       const parsed = JSON.parse(savedUser);
       setUserProfile(parsed);
       setChatPhoneInput(parsed.phone);
-      setChatVerified(true);
       setIsLoggedIn(true);
     }
   }, []);
@@ -167,21 +185,51 @@ export default function UserApp() {
     }
   };
 
-  // নিখুঁত এবং ফাস্ট লগইন সিস্টেম
+  // ১ সেকেন্ডের কম সময়ে সুপার ফাস্ট লগইন সিস্টেম (লোকাল ক্যাশ সহ)
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!navigator.onLine) {
+      return alert('⚠️ ইন্টারনেট সংযোগ নেই! দয়া করে ইন্টারনেট চালু করুন।');
+    }
     if (!inputPhone || inputPhone.length < 11 || !inputPin) {
       return alert('সঠিক মোবাইল নম্বর এবং পিন দিন!');
     }
 
     setIsLoading(true);
     try {
+      const cachedUsers = localStorage.getItem('all_sim_users');
+      if (cachedUsers) {
+        const usersData = JSON.parse(cachedUsers);
+        let matchedUser: any = null;
+
+        Object.keys(usersData).forEach((key) => {
+          const user = usersData[key];
+          if (user.phone === inputPhone) {
+            matchedUser = { id: key, ...user };
+          }
+        });
+
+        if (matchedUser) {
+          if (matchedUser.pin !== inputPin) {
+            setIsLoading(false);
+            return alert('❌ ভুল পিন দেওয়া হয়েছে!');
+          }
+          setUserProfile(matchedUser);
+          setChatPhoneInput(matchedUser.phone);
+          localStorage.setItem('sim_offer_user', JSON.stringify(matchedUser));
+          setIsLoading(false);
+          setIsLoggedIn(true);
+          return;
+        }
+      }
+
       const dbRef = ref(db, 'users');
       const snapshot = await get(dbRef);
       
       setIsLoading(false);
       if (snapshot.exists()) {
         const usersData = snapshot.val();
+        localStorage.setItem('all_sim_users', JSON.stringify(usersData));
         let matchedUser: any = null;
 
         Object.keys(usersData).forEach((key) => {
@@ -196,30 +244,31 @@ export default function UserApp() {
         }
 
         if (matchedUser.pin !== inputPin) {
-          return alert('❌ ভুল পিন দেওয়া হয়েছে! সঠিক পিন দিয়ে আবার চেষ্টা করুন।');
+          return alert('❌ ভুল পিন দেওয়া হয়েছে!');
         }
 
         setUserProfile(matchedUser);
         setChatPhoneInput(matchedUser.phone);
-        setChatVerified(true);
         localStorage.setItem('sim_offer_user', JSON.stringify(matchedUser));
         setIsLoggedIn(true);
-        setPopupAlert('🎉 SIM OFFER SHOP এ আপনাকে স্বাগতম!');
       } else {
         alert('❌ কোনো অ্যাকাউন্ট পাওয়া যায়নি!');
       }
     } catch (error) {
       console.error(error);
       setIsLoading(false);
-      alert('লগইন করার সময় সমস্যা হয়েছে। আবার চেষ্টা করুন।');
+      alert('লগইন করার সময় সমস্যা হয়েছে।');
     }
   };
 
-  // নিখুঁত এবং ফাস্ট একাউন্ট তৈরি সিস্টেম
+  // সুপার ফাস্ট অ্যাকাউন্ট তৈরি ও অটো-লগইন
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!navigator.onLine) {
+      return alert('⚠️ ইন্টারনেট সংযোগ নেই! একাউন্ট তৈরি করতে ইন্টারনেট প্রয়োজন।');
+    }
     if (!inputName || !inputPhone || inputPhone.length < 11 || !inputPin || !inputPic || !inputDivision || !inputDistrict) {
-      return alert('⚠️ দয়া করে নাম, নম্বর, পিন, প্রফাইল ছবি, বিভাগ এবং জেলা—সবগুলো ঘর অবশ্যই পূরণ করুন!');
+      return alert('⚠️ সব ঘরগুলো অবশ্যই পূরণ করুন!');
     }
 
     setIsLoading(true);
@@ -252,26 +301,28 @@ export default function UserApp() {
         district: inputDistrict
       };
 
-      await push(dbRef, newUser);
+      const newRef = push(dbRef, newUser);
+      const createdUser = { id: newRef.key || Date.now().toString(), ...newUser };
       
       setIsLoading(false);
-      setUserProfile(newUser);
-      setChatPhoneInput(newUser.phone);
-      setChatVerified(true);
-      localStorage.setItem('sim_offer_user', JSON.stringify(newUser));
+      setUserProfile(createdUser);
+      setChatPhoneInput(createdUser.phone);
+      localStorage.setItem('sim_offer_user', JSON.stringify(createdUser));
       setIsLoggedIn(true);
-      setPopupAlert('✅ আপনার অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে এবং স্বাগতম!');
+      setPopupAlert('✅ অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে এবং স্বাগতম!');
 
     } catch (error) {
       console.error(error);
       setIsLoading(false);
-      alert('রেজিস্ট্রেশন করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
+      alert('রেজিস্ট্রেশন করতে সমস্যা হয়েছে।');
     }
   };
 
-  const handleLogout = () => {
+  // কনফার্মেশন সহ লগআউট হ্যান্ডলার
+  const confirmLogout = () => {
     localStorage.removeItem('sim_offer_user');
     setIsLoggedIn(false);
+    setShowLogoutConfirm(false);
   };
 
   const handleCopyPaymentNum = (num: string) => {
@@ -307,7 +358,7 @@ export default function UserApp() {
       userName: userProfile.name, userPhone: userProfile.phone, method: selectedMethod,
       amount: Number(addAmount), trxId: trxId.toUpperCase(), time: timeStr, status: 'Pending'
     });
-    setPopupAlert('আপনার Add Money রিকোয়েস্ট Success হয়েছে, অল্প সময়ের মধ্যে ব্যালেন্স এড হয়ে যাবে।');
+    setPopupAlert('আপনার Add Money রিকোয়েস্ট Success হয়েছে।');
     setAddAmount(''); setTrxId('');
   };
 
@@ -343,7 +394,7 @@ export default function UserApp() {
       amount: Number(flexiAmount), targetNumber: flexiPhone, time: timeStr,
       status: 'Pending', note: simType
     });
-    setPopupAlert('🚀 আপনার ফ্লেক্সিলোড Success হয়েছে, অল্প সময়ের মধ্যে চলে যাবে।');
+    setPopupAlert('🚀 ফ্লেক্সিলোড Success হয়েছে।');
     setFlexiPhone(''); setFlexiAmount(''); setFlexiPin('');
   };
 
@@ -356,9 +407,23 @@ export default function UserApp() {
     else if (val.startsWith('015')) setFlexiOperator('Teletalk');
   };
 
-  const handlePullToRefresh = () => {
-    setIsRefreshing(true);
-    setTimeout(() => { setIsRefreshing(false); setPopupAlert('✨ অ্যাপ ডাটা সফলভাবে রিফ্রেশ হয়েছে!'); }, 1000);
+  // প্রিমিয়াম পুল-টু-রিফ্রেশ হ্যান্ডলার
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.targetTouches[0].clientY);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientY);
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStart && touchEnd && touchEnd - touchStart > 120 && window.scrollY === 0) {
+      setIsRefreshing(true);
+      setTimeout(() => {
+        setIsRefreshing(false);
+        setPopupAlert('✨ অ্যাপ ডাটা সফলভাবে রিফ্রেশ হয়েছে!');
+      }, 1000);
+    }
   };
 
   const handleSendChatMessage = () => {
@@ -388,7 +453,7 @@ export default function UserApp() {
       status: 'Pending', note: 'Scratch Card: ' + buyingCard.title
     });
 
-    setPopupAlert(`⏳ কার্ড ক্রয়ের রিকোয়েস্ট সফলভাবে জমা হয়েছে!`);
+    setPopupAlert(`⏳ কার্ড ক্রয়ের রিকোয়েস্ট জমা হয়েছে!`);
     setBuyingCard(null); setTargetCardNumber('');
   };
 
@@ -410,7 +475,7 @@ export default function UserApp() {
       time: timeStr, status: 'Pending', hasLoan: false
     });
 
-    setPopupAlert(`⏳ ড্রাইভ অর্ডার সফলভাবে সাবমিট হয়েছে!`);
+    setPopupAlert(`⏳ ড্রাইভ অর্ডার সাবমিট হয়েছে!`);
     setOrderingOffer(null); setTargetDriveNumber(''); setHasSimLoan(null);
   };
 
@@ -439,9 +504,40 @@ export default function UserApp() {
 
   const visibleOffers = driveOffers.filter(o => o.operator === selectedDriveOp);
 
+  // ইন্টারনেট না থাকলে অফলাইন স্ক্রিন
+  if (!isOnline) {
+    return (
+      <div className="min-h-screen bg-[#0f0c29] flex flex-col items-center justify-center p-6 text-center text-white font-sans select-none">
+        <div className="w-20 h-20 bg-rose-500/20 border border-rose-500/40 rounded-3xl flex items-center justify-center text-rose-400 mb-4 animate-bounce">
+          <WifiOff className="w-10 h-10" />
+        </div>
+        <h2 className="text-lg font-black text-rose-300">ইন্টারনেট সংযোগ বিচ্ছিন্ন!</h2>
+        <p className="text-xs text-slate-300 mt-2 max-w-xs leading-relaxed">
+          এই অ্যাপটি ব্যবহার করার জন্য ইন্টারনেট সংযোগ আবশ্যক। দয়া করে আপনার মোবাইল ডাটা বা ওয়াইফাই চালু করুন।
+        </p>
+        <button 
+          onClick={() => window.location.reload()} 
+          className="mt-6 px-6 py-3 bg-gradient-to-r from-pink-600 to-purple-600 text-white font-bold rounded-xl shadow-lg active:scale-95"
+        >
+          পুনরায় চেষ্টা করুন
+        </button>
+      </div>
+    );
+  }
+
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-[#0f0c29] bg-gradient-to-tr from-[#140b2b] via-[#2d124f] to-[#0f0c29] flex items-center justify-center p-4 font-sans text-xs text-white select-none relative">
+        {/* লগইন/রেজিস্ট্রেশন পেজের ওপরের কোণায় অ্যাডমিন সাপোর্ট লোগোসমূহ */}
+        <div className="absolute top-4 right-4 flex items-center gap-2 z-30">
+          <a href={adminSocialLinks.facebookPage || '#'} target="_blank" rel="noreferrer" className="w-9 h-9 rounded-2xl bg-blue-600/20 border border-blue-500/40 text-blue-400 flex items-center justify-center shadow-lg active:scale-95 transition-all">
+            <Facebook className="w-4 h-4" />
+          </a>
+          <a href={`https://wa.me/${adminSocialLinks.whatsappNumber.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" className="w-9 h-9 rounded-2xl bg-emerald-600/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center shadow-lg active:scale-95 transition-all">
+            <MessageCircle className="w-4 h-4" />
+          </a>
+        </div>
+
         {isLoading && (
           <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center">
             <div className="w-8 h-8 border-4 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
@@ -527,7 +623,20 @@ export default function UserApp() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0d0b21] text-slate-100 flex flex-col font-sans text-xs relative">
+    <div 
+      className="min-h-screen bg-[#0d0b21] text-slate-100 flex flex-col font-sans text-xs relative select-none"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {isRefreshing && (
+        <div className="absolute top-12 left-0 right-0 z-50 flex justify-center">
+          <div className="bg-indigo-600 text-white px-4 py-1.5 rounded-full text-[10px] font-bold shadow-lg flex items-center gap-2 animate-bounce">
+            <RefreshCw className="w-3 h-3 animate-spin" /> রিফ্রেশ হচ্ছে...
+          </div>
+        </div>
+      )}
+
       {forceUpdate.enabled && (
         <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4">
           <div className="bg-[#18133a] border border-indigo-500/40 rounded-3xl p-6 max-w-xs w-full text-center space-y-4 shadow-2xl text-white">
@@ -562,13 +671,19 @@ export default function UserApp() {
 
         {activeSection === 'menu' && (
           <div className="flex items-center gap-1.5">
-            <button onClick={handlePullToRefresh} className={`p-2 rounded-2xl bg-white/5 border border-white/10 text-indigo-400 ${isRefreshing ? 'animate-spin' : ''}`}><RefreshCw className="w-3.5 h-3.5" /></button>
+            {/* হোমপেজে সরাসরি অ্যাডমিন ফেসবুক ও হোয়াটসঅ্যাপ লোগো */}
+            <a href={adminSocialLinks.facebookPage || '#'} target="_blank" rel="noreferrer" className="p-2 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-400" title="ফেসবুক পেজ">
+              <Facebook className="w-3.5 h-3.5" />
+            </a>
+            <a href={`https://wa.me/${adminSocialLinks.whatsappNumber.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" className="p-2 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400" title="হোয়াটসঅ্যাপ">
+              <MessageCircle className="w-3.5 h-3.5" />
+            </a>
             <button onClick={() => setActiveSection('notifications')} className="p-2 rounded-2xl bg-white/5 border border-white/10 text-amber-400 relative">
               <Bell className="w-3.5 h-3.5" />
               {notifications.length > 0 && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full animate-ping" />}
             </button>
             <button onClick={() => setActiveSection('profile')} className="p-2 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 font-extrabold flex items-center gap-1"><UserIcon className="w-3.5 h-3.5" /></button>
-            <button onClick={handleLogout} className="p-2 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400" title="লগআউট"><LogOut className="w-3.5 h-3.5" /></button>
+            <button onClick={() => setShowLogoutConfirm(true)} className="p-2 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400" title="লগআউট"><LogOut className="w-3.5 h-3.5" /></button>
           </div>
         )}
       </header>
@@ -960,6 +1075,25 @@ export default function UserApp() {
           </div>
         )}
       </main>
+
+      {/* লগআউট কনফার্মেশন পপআপ */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#18133a] border border-white/15 rounded-3xl p-6 max-w-xs w-full text-center space-y-4 shadow-2xl text-white">
+            <div className="w-14 h-14 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto border border-rose-500/30 shadow-inner">
+              <LogOut className="w-7 h-7" />
+            </div>
+            <div>
+              <h4 className="text-sm font-black text-white">লগআউট করতে চান?</h4>
+              <p className="text-[11px] text-slate-300 mt-1">আপনি কি সত্যিই একাউন্ট থেকে বের হতে চান?</p>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 py-3 bg-white/10 hover:bg-white/20 text-slate-300 font-bold rounded-xl transition-all">না</button>
+              <button onClick={confirmLogout} className="flex-1 py-3 bg-gradient-to-r from-rose-600 to-red-600 text-white font-bold rounded-xl shadow-lg transition-all active:scale-95">হ্যাঁ</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showExitConfirm && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
